@@ -1,6 +1,7 @@
 """Celery application configuration for asynchronous test execution."""
 
 from celery import Celery
+from celery.schedules import crontab
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +27,10 @@ class CelerySettings(BaseSettings):
     
     # Result settings
     celery_result_expires: int = 86400  # Keep results for 24 hours
+    
+    # Health check settings
+    worker_heartbeat_timeout_seconds: int = 120  # Mark workers offline after 2 minutes without heartbeat
+    worker_health_check_interval_seconds: int = 60  # Run health checks every minute
 
 
 settings = CelerySettings()
@@ -57,4 +62,12 @@ celery_app.conf.update(
     enable_utc=True,
     # Task discovery
     imports=["tasks"],
+    # Beat schedule for periodic tasks
+    beat_schedule={
+        "check-worker-health": {
+            "task": "tasks.check_worker_health",
+            "schedule": settings.worker_health_check_interval_seconds,
+            "args": (settings.worker_heartbeat_timeout_seconds,),
+        },
+    },
 )

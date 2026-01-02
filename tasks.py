@@ -138,3 +138,74 @@ def execute_test_run(self, test_run_id: str, worker_id: str) -> dict:
             logger.error(f"Failed to cleanup after error: {cleanup_error}")
         
         raise
+
+
+@celery_app.task(name="tasks.check_worker_health")
+def check_worker_health(heartbeat_timeout_seconds: int = 120) -> dict:
+    """
+    Periodic task to check worker health and mark stale workers offline.
+    
+    This task runs via Celery Beat every minute (configurable) to detect
+    workers that have stopped sending heartbeats.
+    
+    Args:
+        heartbeat_timeout_seconds: Seconds since last heartbeat before marking offline
+        
+    Returns:
+        dict: Summary of health check results
+    """
+    from datetime import timedelta
+    
+    logger.info(f"Running worker health check with {heartbeat_timeout_seconds}s timeout")
+    
+    cutoff_time = datetime.now(timezone.utc) - timedelta(seconds=heartbeat_timeout_seconds)
+    
+    try:
+        with Session(engine) as session:
+            # Find stale workers that aren't already offline
+            stmt = select(TestWorker).where(
+                TestWorker.deleted_at.is_(None),
+                TestWorker.status != "offline",
+                # Workers that haven't sent heartbeat since cutoff OR never sent one
+                (
+                    (TestWorker.last_heartbeat_at < cutoff_time) |
+                    (TestWorker.last_heartbeat_at.is_(None))
+                ),
+            )
+            stale_workers = session.exec(stmt).all()
+            
+            marked_offline = []
+            for worker in stale_workers:
+                previous_status = worker.status
+                worker.status = "offline"
+                worker.is_available = False
+                worker.updated_at = datetime.now(timezone.utc)
+                session.add(worker)
+                
+                marked_offline.append({
+                    "id": str(worker.id),
+                    "name": worker.name,
+                    "previous_status": previous_status,
+                    "last_heartbeat_at": worker.last_heartbeat_at.isoformat() if worker.last_heartbeat_at else None,
+                })
+                
+                logger.warning(
+                    f"Marked worker '{worker.name}' (ID: {worker.id}) as offline. "
+                    f"Last heartbeat: {worker.last_heartbeat_at}"
+                )
+            
+            if marked_offline:
+                session.commit()
+            
+            logger.info(f"Health check complete. Marked {len(marked_offline)} workers offline.")
+            
+            return {
+                "checked_at": datetime.now(timezone.utc).isoformat(),
+                "heartbeat_timeout_seconds": heartbeat_timeout_seconds,
+                "workers_marked_offline": len(marked_offline),
+                "workers": marked_offline,
+            }
+            
+    except Exception as e:
+        logger.error(f"Error during worker health check: {e}")
+        raise

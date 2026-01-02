@@ -13,8 +13,11 @@ from api.schemas.worker import (
     WorkerResponse,
     WorkerListItem,
     WorkerRegistrationResponse,
+    WorkerHealthResponse,
+    WorkerHealthDetailResponse,
 )
 from api.services.worker import WorkerService
+from api.services.worker_health import WorkerHealthService
 
 
 router = APIRouter(prefix="/workers", tags=["workers"])
@@ -123,6 +126,107 @@ async def list_workers(
 
 
 @router.get(
+    "/health/summary",
+    response_model=WorkerHealthResponse,
+)
+async def get_worker_health_summary(
+    db: AsyncSession = Depends(get_db),
+    organization_id: UUID = Depends(get_current_organization),
+):
+    """
+    Get health summary of all workers in the organization.
+    
+    Returns statistics on worker health including:
+    - Total, online, offline counts
+    - Stale workers (online but no recent heartbeat)
+    - Individual worker health status
+    """
+    service = WorkerHealthService(db)
+    
+    result = await service.get_health_summary(organization_id)
+    
+    return WorkerHealthResponse(
+        organization_id=UUID(result["organization_id"]),
+        checked_at=result["checked_at"],
+        summary=result["summary"],
+        workers=result["workers"],
+    )
+
+
+@router.get(
+    "/health/{worker_id}",
+    response_model=WorkerHealthDetailResponse,
+)
+async def get_worker_health_detail(
+    worker_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    organization_id: UUID = Depends(get_current_organization),
+):
+    """
+    Get detailed health information for a specific worker.
+    
+    Returns comprehensive health data including:
+    - Current status and availability
+    - Time since last heartbeat
+    - Health metrics (CPU, memory, disk)
+    - Worker configuration
+    """
+    service = WorkerHealthService(db)
+    
+    result = await service.get_worker_health(worker_id, organization_id)
+    
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Worker not found",
+        )
+    
+    return WorkerHealthDetailResponse(
+        id=UUID(result["id"]),
+        name=result["name"],
+        status=result["status"],
+        is_available=result["is_available"],
+        is_stale=result["is_stale"],
+        last_heartbeat_at=result["last_heartbeat_at"],
+        seconds_since_heartbeat=result["seconds_since_heartbeat"],
+        health_metrics=result["health_metrics"] or {},
+        current_active_runs=result["current_active_runs"],
+        max_concurrent_runs=result["max_concurrent_runs"],
+        worker_config=result["worker_config"],
+    )
+
+
+@router.get(
+    "/available/list",
+    response_model=list[WorkerListItem],
+)
+async def list_available_workers(
+    db: AsyncSession = Depends(get_db),
+    organization_id: UUID = Depends(get_current_organization),
+    worker_type: str | None = Query(None, description="Filter by worker type"),
+    required_tags: list[str] | None = Query(None, description="Required tags"),
+):
+    """
+    List available workers for job assignment.
+    
+    Returns workers that:
+    - Are marked as available
+    - Have status idle or busy
+    - Have capacity for more concurrent runs
+    - Match the specified type and tags (if provided)
+    """
+    service = WorkerService(db)
+    
+    workers = await service.get_available_workers(
+        organization_id=organization_id,
+        worker_type=worker_type,
+        required_tags=required_tags,
+    )
+    
+    return workers
+
+
+@router.get(
     "/{worker_id}",
     response_model=WorkerResponse,
 )
@@ -206,33 +310,3 @@ async def delete_worker(
     
     await db.commit()
     return None
-
-
-@router.get(
-    "/available/list",
-    response_model=list[WorkerListItem],
-)
-async def list_available_workers(
-    db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
-    worker_type: str | None = Query(None, description="Filter by worker type"),
-    required_tags: list[str] | None = Query(None, description="Required tags"),
-):
-    """
-    List available workers for job assignment.
-    
-    Returns workers that:
-    - Are marked as available
-    - Have status idle or busy
-    - Have capacity for more concurrent runs
-    - Match the specified type and tags (if provided)
-    """
-    service = WorkerService(db)
-    
-    workers = await service.get_available_workers(
-        organization_id=organization_id,
-        worker_type=worker_type,
-        required_tags=required_tags,
-    )
-    
-    return workers

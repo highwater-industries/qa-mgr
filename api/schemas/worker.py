@@ -98,3 +98,56 @@ class WorkerRegistrationResponse(BaseModel):
     worker_id: UUID
     message: str
     heartbeat_interval: int = Field(default=30, description="Seconds between heartbeats")
+
+
+# =============================================================================
+# Health Schemas
+# =============================================================================
+
+class WorkerHealthSummary(BaseModel):
+    """Summary of worker health statistics."""
+    
+    total: int = Field(description="Total workers in organization")
+    online: int = Field(description="Workers with online status")
+    offline: int = Field(description="Workers with offline status")
+    idle: int = Field(description="Workers that are idle")
+    busy: int = Field(description="Workers that are busy")
+    stale: int = Field(description="Online workers with stale heartbeat")
+
+
+class WorkerHealthItem(BaseModel):
+    """Worker health details in the list."""
+    
+    id: UUID
+    name: str
+    status: str
+    is_available: bool
+    is_stale: bool = Field(description="True if heartbeat is stale")
+    last_heartbeat_at: datetime | None
+    current_active_runs: int
+    max_concurrent_runs: int
+
+
+class WorkerHealthResponse(BaseModel):
+    """Response for worker health endpoint."""
+    
+    organization_id: UUID
+    checked_at: datetime
+    summary: WorkerHealthSummary
+    workers: list[WorkerHealthItem]
+
+
+class WorkerHealthDetailResponse(BaseModel):
+    """Detailed health response for a specific worker."""
+    
+    id: UUID
+    name: str
+    status: str
+    is_available: bool
+    is_stale: bool
+    last_heartbeat_at: datetime | None
+    seconds_since_heartbeat: int | None
+    health_metrics: dict
+    current_active_runs: int
+    max_concurrent_runs: int
+    worker_config: dict | None
