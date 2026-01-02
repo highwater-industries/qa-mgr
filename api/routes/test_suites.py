@@ -4,8 +4,10 @@ from uuid import UUID
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_session, get_current_organization
+from database.config import get_db
+from api.dependencies import get_current_organization
 from api.services.test_suite import TestSuiteService
 from api.schemas.test_suite import (
     TestSuiteCreateRequest,
@@ -14,10 +16,9 @@ from api.schemas.test_suite import (
     TestSuiteDetailResponse,
     TestSuiteTreeNode,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
-router = APIRouter(prefix="/test-suites", tags=["Test Suites"])
+router = APIRouter(prefix="/test-suites", tags=["test-suites"])
 
 
 @router.post(
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/test-suites", tags=["Test Suites"])
 )
 async def create_test_suite(
     data: TestSuiteCreateRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Create a new test suite."""
@@ -51,7 +52,7 @@ async def create_test_suite(
 )
 async def list_test_suites(
     project_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
     parent_id: UUID | None = Query(None),
 ):
@@ -74,7 +75,7 @@ async def list_test_suites(
 )
 async def get_test_suite(
     suite_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Get a test suite by ID with detailed information."""
@@ -96,7 +97,7 @@ async def get_test_suite(
 )
 async def get_test_suite_tree(
     suite_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Get a test suite with its full child hierarchy."""
@@ -119,7 +120,7 @@ async def get_test_suite_tree(
 async def update_test_suite(
     suite_id: UUID,
     data: TestSuiteUpdateRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Update a test suite."""
@@ -149,7 +150,7 @@ async def update_test_suite(
 )
 async def delete_test_suite(
     suite_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Delete a test suite (soft delete)."""

@@ -29,7 +29,7 @@ class TestSuiteService:
     ) -> TestSuite:
         """Create a new test suite."""
         # Verify project exists and belongs to organization
-        project = await self.project_repository.get_by_id(
+        project = await self.project_repository.get_by_id_and_org(
             data.project_id,
             organization_id,
         )
@@ -38,7 +38,7 @@ class TestSuiteService:
         
         # Verify parent suite exists if provided
         if data.parent_id:
-            parent = await self.repository.get_by_id(
+            parent = await self.repository.get_by_id_and_org(
                 data.parent_id,
                 organization_id,
             )
@@ -68,7 +68,7 @@ class TestSuiteService:
         organization_id: UUID,
     ) -> TestSuite | None:
         """Get a test suite by ID."""
-        return await self.repository.get_by_id(suite_id, organization_id)
+        return await self.repository.get_by_id_and_org(suite_id, organization_id)
     
     async def get_suite_detail(
         self,
@@ -98,7 +98,7 @@ class TestSuiteService:
     ) -> list[TestSuite]:
         """List test suites for a project."""
         # Verify project exists
-        project = await self.project_repository.get_by_id(
+        project = await self.project_repository.get_by_id_and_org(
             project_id,
             organization_id,
         )
@@ -156,7 +156,7 @@ class TestSuiteService:
                 raise ValueError("A suite with this path already exists in the project")
         
         update_data = data.model_dump(exclude_unset=True)
-        return await self.repository.update(suite_id, organization_id, update_data)
+        return await self.repository.update_by_id_and_org(suite_id, organization_id, update_data)
     
     async def delete_suite(
         self,
@@ -178,5 +178,5 @@ class TestSuiteService:
         if test_count > 0:
             raise ValueError("Cannot delete a suite with test cases")
         
-        await self.repository.delete(suite_id, organization_id)
+        await self.repository.delete_by_id_and_org(suite_id, organization_id)
         return True

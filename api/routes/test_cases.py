@@ -4,8 +4,10 @@ from uuid import UUID
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_session, get_current_organization
+from database.config import get_db
+from api.dependencies import get_current_organization
 from api.services.test_case import TestCaseService
 from api.schemas.test_case import (
     TestCaseCreateRequest,
@@ -13,10 +15,9 @@ from api.schemas.test_case import (
     TestCaseResponse,
     TestCaseDetailResponse,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
-router = APIRouter(prefix="/test-cases", tags=["Test Cases"])
+router = APIRouter(prefix="/test-cases", tags=["test-cases"])
 
 
 @router.post(
@@ -26,7 +27,7 @@ router = APIRouter(prefix="/test-cases", tags=["Test Cases"])
 )
 async def create_test_case(
     data: TestCaseCreateRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Create a new test case."""
@@ -50,7 +51,7 @@ async def create_test_case(
 )
 async def list_test_cases(
     suite_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
     active_only: bool = Query(False),
 ):
@@ -77,7 +78,7 @@ async def list_test_cases(
 )
 async def get_test_case(
     test_case_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Get a test case by ID with detailed information."""
@@ -100,7 +101,7 @@ async def get_test_case(
 async def update_test_case(
     test_case_id: UUID,
     data: TestCaseUpdateRequest,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Update a test case."""
@@ -128,7 +129,7 @@ async def update_test_case(
 )
 async def delete_test_case(
     test_case_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_session)],
+    session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Delete a test case (soft delete)."""

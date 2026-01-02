@@ -28,7 +28,7 @@ class TestCaseService:
     ) -> TestCase:
         """Create a new test case."""
         # Verify suite exists and belongs to organization
-        suite = await self.suite_repository.get_by_id(
+        suite = await self.suite_repository.get_by_id_and_org(
             data.suite_id,
             organization_id,
         )
@@ -55,7 +55,7 @@ class TestCaseService:
         organization_id: UUID,
     ) -> TestCase | None:
         """Get a test case by ID."""
-        return await self.repository.get_by_id(test_case_id, organization_id)
+        return await self.repository.get_by_id_and_org(test_case_id, organization_id)
     
     async def get_test_case_detail(
         self,
@@ -77,7 +77,7 @@ class TestCaseService:
     ) -> list[TestCase]:
         """List test cases for a suite."""
         # Verify suite exists
-        suite = await self.suite_repository.get_by_id(
+        suite = await self.suite_repository.get_by_id_and_org(
             suite_id,
             organization_id,
         )
@@ -107,7 +107,7 @@ class TestCaseService:
             return None
         
         update_data = data.model_dump(exclude_unset=True)
-        return await self.repository.update(test_case_id, organization_id, update_data)
+        return await self.repository.update_by_id_and_org(test_case_id, organization_id, update_data)
     
     async def delete_test_case(
         self,
@@ -119,5 +119,5 @@ class TestCaseService:
         if not test_case:
             return False
         
-        await self.repository.delete(test_case_id, organization_id)
+        await self.repository.delete_by_id_and_org(test_case_id, organization_id)
         return True

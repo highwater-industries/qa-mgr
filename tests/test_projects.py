@@ -44,22 +44,6 @@ async def test_list_projects_simplified(client: AsyncClient, auth_headers, db_se
 
 
 @pytest.mark.asyncio
-async def test_create_project_explicit_organization(client: AsyncClient, admin_headers, test_organization):
-    """Test creating project with explicit organization ID."""
-    response = await client.post(
-        f"/api/v1/organizations/{test_organization.id}/projects",
-        json={
-            "name": "Explicit Org Project",
-            "description": "Created with explicit organization",
-        },
-        headers=admin_headers,
-    )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["name"] == "Explicit Org Project"
-
-
-@pytest.mark.asyncio
 async def test_get_project_details(client: AsyncClient, auth_headers, db_session, test_organization):
     """Test getting project details."""
     # Create a test project

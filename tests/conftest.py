@@ -234,3 +234,16 @@ async def test_case(db_session: AsyncSession, test_organization: Organization, t
     await db_session.commit()
     await db_session.refresh(test_case)
     return test_case
+
+
+@pytest.fixture
+async def test_user_token(auth_headers: dict[str, str]) -> str:
+    """Extract token from auth headers."""
+    return auth_headers["Authorization"].replace("Bearer ", "")
+
+
+@pytest.fixture
+def test_org_id(test_organization: Organization):
+    """Get test organization ID."""
+    return test_organization.id
+

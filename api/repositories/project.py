@@ -13,6 +13,22 @@ class ProjectRepository(BaseRepository[Project]):
     def __init__(self, db: AsyncSession):
         super().__init__(db, Project)
     
+    async def get_by_id_and_org(
+        self, project_id: UUID, organization_id: UUID
+    ) -> Project | None:
+        """Get project by ID and organization (secure access)."""
+        result = await self.db.execute(
+            select(Project)
+            .where(
+                and_(
+                    Project.id == project_id,
+                    Project.organization_id == organization_id,
+                    Project.deleted_at.is_(None),
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+    
     async def get_by_organization_and_name(
         self, organization_id: UUID, name: str
     ) -> Project | None:

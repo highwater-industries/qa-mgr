@@ -4,6 +4,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models.organization import Organization, UserOrganizationRole
+from database.models.user import User
 from api.repositories.base import BaseRepository
 
 class OrganizationRepository(BaseRepository[Organization]):
@@ -65,7 +66,7 @@ class OrganizationRepository(BaseRepository[Organization]):
         return list(result.scalars().all())
     
     async def create_with_admin(self, organization: Organization, admin_user_id: UUID) -> Organization:
-        """Create organization and grant admin role to user."""
+        """Create organization and grant admin role to user and all superusers."""
         # Create organization
         self.db.add(organization)
         await self.db.flush()
@@ -77,6 +78,27 @@ class OrganizationRepository(BaseRepository[Organization]):
             role="admin",
         )
         self.db.add(role)
+        
+        # Grant all superusers admin access to the new organization
+        result = await self.db.execute(
+            select(User).where(
+                and_(
+                    User.is_superuser == True,
+                    User.id != admin_user_id,  # Don't duplicate if creator is superuser
+                    User.deleted_at.is_(None),
+                )
+            )
+        )
+        superusers = result.scalars().all()
+        
+        for superuser in superusers:
+            superuser_role = UserOrganizationRole(
+                user_id=superuser.id,
+                organization_id=organization.id,
+                role="admin",
+            )
+            self.db.add(superuser_role)
+        
         await self.db.commit()
         await self.db.refresh(organization)
         

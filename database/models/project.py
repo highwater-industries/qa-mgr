@@ -68,6 +68,7 @@ class TestSuite(TenantBaseModel, table=True):
     - tests/unit/api (path)
     - tests/integration/database (path)
     """
+    __test__ = False  # Prevent pytest from collecting this as a test class
     
     __tablename__ = "test_suites"
     

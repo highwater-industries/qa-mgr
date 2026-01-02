@@ -36,6 +36,7 @@ class TestCase(TenantBaseModel, table=True):
     """
     
     __tablename__ = "test_cases"
+    __test__ = False  # Prevent pytest from collecting this as a test class
     
     # Suite relationship
     suite_id: UUID = Field(foreign_key="test_suites.id", index=True)
@@ -106,6 +107,7 @@ class TestRun(TenantBaseModel, table=True):
     """
     
     __tablename__ = "test_runs"
+    __test__ = False  # Prevent pytest from collecting this as a test class
     
     # Relationships
     project_id: UUID | None = Field(default=None, foreign_key="projects.id", index=True)
@@ -214,6 +216,7 @@ class TestResult(TenantBaseModel, table=True):
     """
     
     __tablename__ = "test_results"
+    __test__ = False  # Prevent pytest from collecting this as a test class
     
     # Relationships
     test_run_id: UUID = Field(foreign_key="test_runs.id", index=True)

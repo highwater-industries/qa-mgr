@@ -9,7 +9,8 @@ import logging
 
 from api.routes import auth, organizations, users
 from api.routes import projects
-from api.routes import test_suites, test_cases
+from api.routes import test_suites, test_cases, test_runs, test_catalog
+from api.routes import webhooks
 # Models imported in routes as needed - not globally here
 
 logger = logging.getLogger(__name__)
@@ -46,21 +47,21 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(organizations.router, prefix="/api/v1/organizations", tags=["organizations"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 
-# Project routes - both simplified and organization-scoped
+# Project routes - uses current user's organization context
 app.include_router(
     projects.simple_router,
     prefix="/api/v1/projects",
     tags=["projects"],
 )
-app.include_router(
-    projects.router,
-    prefix="/api/v1/organizations/{organization_id}/projects",
-    tags=["projects-admin"],
-)
 
 # Test suite and test case routes
 app.include_router(test_suites.router, prefix="/api/v1")
 app.include_router(test_cases.router, prefix="/api/v1")
+app.include_router(test_runs.router, prefix="/api/v1")
+app.include_router(test_catalog.router, prefix="/api/v1")
+
+# Webhook routes (public endpoints with secret/token auth)
+app.include_router(webhooks.router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

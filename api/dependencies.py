@@ -41,6 +41,35 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_from_token(
+    token: str,
+    db: AsyncSession,
+):
+    """Get user from JWT token string (for webhook authentication)."""
+    from database.models import User
+    from api.repositories.user import UserRepository
+    
+    payload = decode_access_token(token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+    
+    user_id = payload.get("sub")
+    repo = UserRepository(db)
+    user = await repo.get_by_id(UUID(user_id))
+    
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+    
+    return user
+
+
 async def get_current_organization(
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
