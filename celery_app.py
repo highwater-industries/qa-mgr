@@ -69,5 +69,9 @@ celery_app.conf.update(
             "schedule": settings.worker_health_check_interval_seconds,
             "args": (settings.worker_heartbeat_timeout_seconds,),
         },
+        "process-schedules": {
+            "task": "tasks.process_due_schedules",
+            "schedule": 60,  # Check every minute
+        },
     },
 )

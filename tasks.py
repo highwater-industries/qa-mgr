@@ -209,3 +209,109 @@ def check_worker_health(heartbeat_timeout_seconds: int = 120) -> dict:
     except Exception as e:
         logger.error(f"Error during worker health check: {e}")
         raise
+
+
+@celery_app.task(name="tasks.process_due_schedules")
+def process_due_schedules() -> dict:
+    """
+    Periodic task to find and trigger due schedules.
+    
+    This task runs via Celery Beat every minute to check for schedules
+    that have passed their next_run_at time and need to be executed.
+    
+    Returns:
+        dict: Summary of schedules processed
+    """
+    from database.models.worker import Schedule
+    from database.models.test_models import TestRun
+    from database.models.base import TRIGGER_SCHEDULED, STATUS_QUEUED
+    from croniter import croniter
+    from sqlalchemy import func
+    
+    logger.info("Processing due schedules...")
+    
+    now = datetime.now(timezone.utc)
+    triggered = []
+    
+    try:
+        with Session(engine) as session:
+            # Find due schedules
+            stmt = select(Schedule).where(
+                Schedule.is_active == True,
+                Schedule.deleted_at.is_(None),
+                Schedule.next_run_at <= now,
+            )
+            due_schedules = session.exec(stmt).all()
+            
+            for schedule in due_schedules:
+                try:
+                    # Get next run number
+                    max_stmt = select(func.max(TestRun.run_number)).where(
+                        TestRun.organization_id == schedule.organization_id
+                    )
+                    max_number = session.exec(max_stmt).one_or_none() or 0
+                    run_number = max_number + 1
+                    
+                    # Create test run
+                    test_run = TestRun(
+                        organization_id=schedule.organization_id,
+                        project_id=schedule.project_id,
+                        suite_id=schedule.suite_id,
+                        schedule_id=schedule.id,
+                        name=f"{schedule.name} - Run #{run_number}",
+                        run_number=run_number,
+                        trigger_type=TRIGGER_SCHEDULED,
+                        branch=schedule.branch,
+                        test_tags=schedule.test_tags,
+                        status=STATUS_QUEUED,
+                        queued_at=now,
+                    )
+                    session.add(test_run)
+                    
+                    # Update schedule
+                    schedule.last_run_at = now
+                    
+                    # Calculate next run time
+                    try:
+                        cron = croniter(schedule.cron_expression, now)
+                        schedule.next_run_at = cron.get_next(datetime)
+                    except Exception as cron_err:
+                        logger.error(f"Invalid cron for schedule {schedule.id}: {cron_err}")
+                        schedule.is_active = False
+                    
+                    session.add(schedule)
+                    session.commit()
+                    session.refresh(test_run)
+                    
+                    triggered.append({
+                        "schedule_id": str(schedule.id),
+                        "schedule_name": schedule.name,
+                        "test_run_id": str(test_run.id),
+                        "run_number": run_number,
+                    })
+                    
+                    logger.info(
+                        f"Triggered schedule '{schedule.name}' (ID: {schedule.id}) - "
+                        f"Created TestRun {test_run.id}"
+                    )
+                    
+                    # TODO: Queue the test run to an available worker
+                    # For now, the test run is created with status=queued
+                    # A separate job assignment process would pick it up
+                    
+                except Exception as sched_err:
+                    logger.error(f"Error triggering schedule {schedule.id}: {sched_err}")
+                    session.rollback()
+            
+            logger.info(f"Schedule processing complete. Triggered {len(triggered)} runs.")
+            
+            return {
+                "processed_at": now.isoformat(),
+                "schedules_triggered": len(triggered),
+                "runs": triggered,
+            }
+            
+    except Exception as e:
+        logger.error(f"Error processing schedules: {e}")
+        raise
+        raise
