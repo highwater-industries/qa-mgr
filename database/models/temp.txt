@@ -1,0 +1,2537 @@
+"""
+Base models for QA Manager.
+Simple, explicit, no magic.
+"""
+
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
+from sqlmodel import SQLModel, Field
+
+
+def utc_now() -> datetime:
+    """Get current UTC time."""
+    return datetime.now(timezone.utc)
+
+
+class BaseModel(SQLModel):
+    """
+    Base model with common fields.
+    All models inherit this to get: id, created_at, updated_at, deleted_at
+    """
+    
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+    deleted_at: datetime | None = Field(default=None)
+    
+    class Config:
+        from_attributes = True
+
+
+class TenantBaseModel(BaseModel):
+    """Base model for tenant-scoped tables."""
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+
+
+# Role constants
+ROLE_ADMIN = "admin"
+ROLE_ENGINEER = "engineer" 
+ROLE_DEVELOPER = "developer"
+ROLE_VIEWER = "viewer"
+
+# Test Run Status
+STATUS_QUEUED = "queued"
+STATUS_RUNNING = "running"
+STATUS_COMPLETED = "completed"
+STATUS_FAILED = "failed"
+STATUS_CANCELLED = "cancelled"
+STATUS_TIMEOUT = "timeout"
+
+# Test Result Status
+RESULT_PASSED = "passed"
+RESULT_FAILED = "failed"
+RESULT_SKIPPED = "skipped"
+RESULT_ERROR = "error"
+RESULT_XFAIL = "xfail"  # Expected failure
+
+# Worker Status
+WORKER_ONLINE = "online"
+WORKER_BUSY = "busy"
+WORKER_OFFLINE = "offline"
+WORKER_MAINTENANCE = "maintenance"
+
+# Worker Types
+WORKER_TYPE_CELERY = "celery"
+WORKER_TYPE_JENKINS = "jenkins"
+WORKER_TYPE_CUSTOM = "custom"
+
+# Tenant Types
+TENANT_TYPE_ORGANIZATION = "organization"
+TENANT_TYPE_APPLICATION = "application"
+
+# Tenant Status
+TENANT_STATUS_ACTIVE = "active"
+TENANT_STATUS_ARCHIVED = "archived"
+TENANT_STATUS_SUSPENDED = "suspended"
+
+# Trigger Types
+TRIGGER_MANUAL = "manual"
+TRIGGER_SCHEDULED = "scheduled"
+TRIGGER_WEBHOOK = "webhook"
+TRIGGER_API = "api"
+
+# Test Frameworks
+FRAMEWORK_PYTEST = "pytest"
+FRAMEWORK_UNITTEST = "unittest"
+FRAMEWORK_JEST = "jest"
+FRAMEWORK_JUNIT = "junit"
+
+
+# =============================================================================
+# Utility Functions
+# =============================================================================
+
+def ensure_utc(dt: datetime | None) -> datetime | None:
+    """Ensure datetime is timezone-aware (UTC)."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def now_utc() -> datetime:
+    """Get current UTC datetime."""
+    return datetime.now(timezone.utc)
+
+"""
+Project and TestSuite models.
+
+Project represents a repository/codebase being tested.
+TestSuite is a logical grouping of tests (file, module, feature).
+"""
+
+from uuid import UUID
+from datetime import datetime
+
+from sqlmodel import Field, SQLModel, Relationship, Column, Index
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY, TEXT
+
+from .base import TenantBaseModel
+
+
+# =============================================================================
+# Database Models
+# =============================================================================
+
+class Project(TenantBaseModel, table=True):
+    """
+    Project table - represents a repository/codebase being tested.
+    """
+    
+    __tablename__ = "projects"
+    
+    # Basic info
+    name: str = Field(max_length=255)
+    description: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Repository
+    repository_url: str | None = Field(default=None, max_length=500)
+    repository_type: str | None = Field(default="git", max_length=50)
+    default_branch: str = Field(default="main", max_length=100)
+    
+    # Configuration (JSONB for flexibility)
+    config: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    test_suites: list["TestSuite"] = Relationship(back_populates="project")
+    
+    __table_args__ = (
+        Index("idx_project_tenant", "tenant_id"),
+        Index("idx_project_tenant_name", "tenant_id", "name"),
+    )
+
+
+class TestSuite(TenantBaseModel, table=True):
+    """
+    TestSuite table - logical grouping of test cases.
+    
+    Supports hierarchy (parent_id) for nested suites.
+    Examples:
+    - tests/unit/api (path)
+    - tests/integration/database (path)
+    """
+    
+    __tablename__ = "test_suites"
+    
+    # Hierarchy
+    project_id: UUID = Field(foreign_key="projects.id", index=True)
+    parent_id: UUID | None = Field(
+        default=None,
+        foreign_key="test_suites.id",
+        nullable=True,
+    )
+    
+    # Identity
+    name: str = Field(max_length=500)
+    description: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Path (for file-based suites)
+    path: str = Field(max_length=1000)  # e.g., "tests/unit/api"
+    
+    # Classification
+    tags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    category: str | None = Field(default=None, max_length=100)  # 'unit', 'integration', 'e2e'
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    project: Project = Relationship(back_populates="test_suites")
+    parent: "TestSuite | None" = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={
+            "remote_side": "TestSuite.id",
+            "foreign_keys": "[TestSuite.parent_id]",
+        },
+    )
+    children: list["TestSuite"] = Relationship(back_populates="parent")
+    test_cases: list["TestCase"] = Relationship(back_populates="suite")  # type: ignore
+    
+    __table_args__ = (
+        Index("idx_suite_tenant_project", "tenant_id", "project_id"),
+        Index("idx_suite_parent", "parent_id"),
+        Index("idx_suite_path", "tenant_id", "path"),
+    )
+
+
+# =============================================================================
+# API Schemas - Project
+# =============================================================================
+
+class ProjectBase(SQLModel):
+    """Base schema for Project."""
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+
+
+class ProjectCreate(ProjectBase):
+    """Request schema for creating a project."""
+    repository_url: str | None = None
+    repository_type: str = "git"
+    default_branch: str = "main"
+    config: dict = {}
+
+
+class ProjectUpdate(SQLModel):
+    """Request schema for updating a project."""
+    name: str | None = None
+    description: str | None = None
+    repository_url: str | None = None
+    default_branch: str | None = None
+    config: dict | None = None
+
+
+class ProjectPublic(ProjectBase):
+    """Public response schema for Project."""
+    id: UUID
+    tenant_id: UUID
+    repository_url: str | None
+    repository_type: str | None
+    default_branch: str
+    created_at: datetime
+    
+    # Statistics (computed)
+    suite_count: int = 0
+    test_count: int = 0
+    last_run_at: datetime | None = None
+
+
+class ProjectDetail(ProjectPublic):
+    """Detailed response schema for Project."""
+    config: dict
+    updated_at: datetime
+
+
+# =============================================================================
+# API Schemas - TestSuite
+# =============================================================================
+
+class TestSuiteBase(SQLModel):
+    """Base schema for TestSuite."""
+    name: str = Field(min_length=1, max_length=500)
+    description: str | None = None
+    path: str = Field(min_length=1, max_length=1000)
+
+
+class TestSuiteCreate(TestSuiteBase):
+    """Request schema for creating a test suite."""
+    project_id: UUID
+    parent_id: UUID | None = None
+    tags: list[str] = []
+    category: str | None = None
+    meta_data: dict = {}
+
+
+class TestSuiteUpdate(SQLModel):
+    """Request schema for updating a test suite."""
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    category: str | None = None
+    meta_data: dict | None = None
+
+
+class TestSuitePublic(TestSuiteBase):
+    """Public response schema for TestSuite."""
+    id: UUID
+    tenant_id: UUID
+    project_id: UUID
+    parent_id: UUID | None
+    tags: list[str]
+    category: str | None
+    created_at: datetime
+    
+    # Statistics (computed)
+    test_count: int = 0
+    child_count: int = 0
+
+
+class TestSuiteDetail(TestSuitePublic):
+    """Detailed response schema for TestSuite."""
+    meta_data: dict
+    updated_at: datetime
+    
+    # Nested project info
+    class ProjectInfo(SQLModel):
+        id: UUID
+        name: str
+    
+    project: ProjectInfo | None = None
+
+
+class TestSuiteTree(TestSuitePublic):
+    """Tree response schema for TestSuite (includes children)."""
+    children: list["TestSuiteTree"] = []
+
+
+# =============================================================================
+# Example Usage
+# =============================================================================
+
+"""
+# Creating a project
+project = Project(
+    tenant_id=current_tenant_id,
+    name="Web Application",
+    repository_url="https://github.com/org/web-app.git",
+    default_branch="main",
+)
+
+# Creating a test suite
+suite = TestSuite(
+    tenant_id=current_tenant_id,
+    project_id=project.id,
+    name="API Tests",
+    path="tests/api",
+    category="integration",
+    tags=["api", "integration"],
+)
+
+# API endpoint
+@router.post("/projects", response_model=ProjectPublic)
+async def create_project(
+    data: ProjectCreate,
+    session: Session = Depends(get_session),
+    current_tenant_id: UUID = Depends(get_current_tenant),
+):
+    project = Project(**data.model_dump(), tenant_id=current_tenant_id)
+    session.add(project)
+    session.commit()
+    session.refresh(project)
+    return project
+"""
+
+"""
+Request/Approval models: TenantRequest, AccessRequest.
+
+TenantRequest: User requests to create a new tenant (requires org admin approval)
+AccessRequest: User requests access to an existing tenant (requires tenant admin approval)
+"""
+
+from uuid import UUID
+from datetime import datetime
+
+from sqlmodel import Field, SQLModel, Relationship, Column, Index
+from sqlalchemy.dialects.postgresql import JSONB, TEXT
+
+from .base import BaseModel, now_utc
+
+
+# =============================================================================
+# Database Models - TenantRequest
+# =============================================================================
+
+class TenantRequest(BaseModel, table=True):
+    """
+    TenantRequest table - user requests to create a new tenant.
+    
+    Workflow:
+    1. Non-admin user submits tenant creation request
+    2. Org admin reviews and approves/rejects
+    3. On approval: tenant created, requester becomes admin
+    """
+    
+    __tablename__ = "tenant_requests"
+    
+    # Requester
+    requested_by: UUID = Field(foreign_key="users.id", index=True)
+    
+    # Requested tenant details
+    tenant_name: str = Field(max_length=255)
+    tenant_slug: str = Field(max_length=255, index=True)
+    description: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    justification: str = Field(
+        sa_column=Column(TEXT, nullable=False),
+    )
+    
+    # Proposed configuration
+    config: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Status
+    status: str = Field(
+        max_length=50,
+        default="pending_approval",
+        index=True,
+    )  # pending_approval, approved, rejected
+    
+    # Review
+    reviewed_by: UUID | None = Field(
+        default=None,
+        foreign_key="users.id",
+        nullable=True,
+    )
+    reviewed_at: datetime | None = None
+    review_notes: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Created tenant (if approved)
+    tenant_id: UUID | None = Field(
+        default=None,
+        foreign_key="tenants.id",
+        nullable=True,
+    )
+    
+    # Relationships
+    requester: "User" = Relationship(
+        sa_relationship_kwargs={
+            "foreign_keys": "[TenantRequest.requested_by]",
+        }
+    )  # type: ignore
+    reviewer: "User | None" = Relationship(
+        sa_relationship_kwargs={
+            "foreign_keys": "[TenantRequest.reviewed_by]",
+        }
+    )  # type: ignore
+    tenant: "Tenant | None" = Relationship()  # type: ignore
+    
+    __table_args__ = (
+        Index("idx_tenant_request_status", "status"),
+        Index("idx_tenant_request_requester", "requested_by", "status"),
+    )
+
+
+# =============================================================================
+# Database Models - AccessRequest
+# =============================================================================
+
+class AccessRequest(BaseModel, table=True):
+    """
+    AccessRequest table - user requests access to a tenant.
+    
+    Workflow:
+    1. User discovers tenant and requests access
+    2. Tenant admin reviews and approves/rejects
+    3. On approval: UserTenantRole created with requested role
+    
+    Note: Some tenants may have auto_approve_access_requests=true
+    """
+    
+    __tablename__ = "access_requests"
+    
+    # Request details
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+    requested_by: UUID = Field(foreign_key="users.id", index=True)
+    requested_role: str = Field(max_length=50)  # 'admin', 'developer', 'viewer'
+    
+    # Justification
+    reason: str = Field(
+        sa_column=Column(TEXT, nullable=False),
+    )
+    
+    # Status
+    status: str = Field(
+        max_length=50,
+        default="pending_approval",
+        index=True,
+    )  # pending_approval, approved, rejected, auto_approved
+    
+    # Review
+    reviewed_by: UUID | None = Field(
+        default=None,
+        foreign_key="users.id",
+        nullable=True,
+    )
+    reviewed_at: datetime | None = None
+    review_notes: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Created role (if approved)
+    user_tenant_role_id: UUID | None = Field(
+        default=None,
+        foreign_key="user_tenant_roles.id",
+        nullable=True,
+    )
+    
+    # Auto-approval
+    auto_approved: bool = Field(default=False)
+    
+    # Relationships
+    tenant: "Tenant" = Relationship()  # type: ignore
+    requester: "User" = Relationship(
+        sa_relationship_kwargs={
+            "foreign_keys": "[AccessRequest.requested_by]",
+        }
+    )  # type: ignore
+    reviewer: "User | None" = Relationship(
+        sa_relationship_kwargs={
+            "foreign_keys": "[AccessRequest.reviewed_by]",
+        }
+    )  # type: ignore
+    role: "UserTenantRole | None" = Relationship()  # type: ignore
+    
+    __table_args__ = (
+        Index("idx_access_request_tenant", "tenant_id", "status"),
+        Index("idx_access_request_user", "requested_by", "tenant_id"),
+    )
+
+
+# =============================================================================
+# API Schemas - TenantRequest
+# =============================================================================
+
+class TenantRequestBase(SQLModel):
+    """Base schema for TenantRequest."""
+    tenant_name: str = Field(min_length=1, max_length=255)
+    tenant_slug: str = Field(min_length=1, max_length=255, regex=r"^[a-z0-9-]+$")
+    justification: str = Field(min_length=10)
+
+
+class TenantRequestCreate(TenantRequestBase):
+    """Request schema for creating a tenant request."""
+    description: str | None = None
+    config: dict = {}
+
+
+class TenantRequestPublic(TenantRequestBase):
+    """Public response schema for TenantRequest."""
+    id: UUID
+    requested_by: UUID
+    description: str | None
+    status: str
+    created_at: datetime
+
+
+class TenantRequestDetail(TenantRequestPublic):
+    """Detailed response schema for TenantRequest."""
+    config: dict
+    reviewed_by: UUID | None
+    reviewed_at: datetime | None
+    review_notes: str | None
+    tenant_id: UUID | None
+    updated_at: datetime
+
+
+class TenantRequestReview(SQLModel):
+    """Request schema for approving/rejecting tenant request."""
+    review_notes: str | None = None
+
+
+# =============================================================================
+# API Schemas - AccessRequest
+# =============================================================================
+
+class AccessRequestBase(SQLModel):
+    """Base schema for AccessRequest."""
+    tenant_id: UUID
+    requested_role: str = Field(regex=r"^(admin|developer|viewer)$")
+    reason: str = Field(min_length=10)
+
+
+class AccessRequestCreate(AccessRequestBase):
+    """Request schema for creating an access request."""
+    pass
+
+
+class AccessRequestPublic(SQLModel):
+    """Public response schema for AccessRequest."""
+    id: UUID
+    tenant_id: UUID
+    requested_by: UUID
+    requested_role: str
+    reason: str
+    status: str
+    auto_approved: bool
+    created_at: datetime
+
+
+class AccessRequestDetail(AccessRequestPublic):
+    """Detailed response schema for AccessRequest."""
+    reviewed_by: UUID | None
+    reviewed_at: datetime | None
+    review_notes: str | None
+    user_tenant_role_id: UUID | None
+    updated_at: datetime
+
+
+class AccessRequestReview(SQLModel):
+    """Request schema for approving/rejecting access request."""
+    review_notes: str | None = None
+
+
+# =============================================================================
+# Example Usage
+# =============================================================================
+
+"""
+# User submits tenant creation request
+tenant_request = TenantRequest(
+    requested_by=current_user_id,
+    tenant_name="Payment Service",
+    tenant_slug="payment-svc",
+    description="Test automation for payment microservice",
+    justification="New microservice launching next quarter, needs dedicated test workspace",
+    config={
+        "retention_days": 90,
+        "frameworks": ["pytest"],
+    },
+    status="pending_approval",
+)
+
+# Org admin approves
+tenant_request.status = "approved"
+tenant_request.reviewed_by = org_admin_id
+tenant_request.reviewed_at = datetime.now()
+tenant_request.review_notes = "Approved - valid business need"
+# ... create tenant and grant requester admin role ...
+tenant_request.tenant_id = new_tenant.id
+
+
+# User requests access to tenant
+access_request = AccessRequest(
+    tenant_id=tenant_id,
+    requested_by=current_user_id,
+    requested_role="developer",
+    reason="Need access to debug failing tests in payment service",
+    status="pending_approval",
+)
+
+# Tenant admin approves
+access_request.status = "approved"
+access_request.reviewed_by = tenant_admin_id
+access_request.reviewed_at = datetime.now()
+# ... create UserTenantRole ...
+access_request.user_tenant_role_id = new_role.id
+
+# Auto-approval (if tenant has auto_approve_access_requests=true)
+access_request = AccessRequest(
+    tenant_id=tenant_id,
+    requested_by=current_user_id,
+    requested_role="viewer",
+    reason="Need to view test results",
+    status="auto_approved",
+    auto_approved=True,
+)
+# ... create UserTenantRole immediately ...
+"""
+
+"""
+System models: APIToken, AuditLog, SystemEvent, TestCoverage, TestFailureAnalysis.
+
+APIToken: Service/user API tokens with scopes
+AuditLog: User actions audit trail
+SystemEvent: System-level events for monitoring
+TestCoverage: Code coverage metrics
+TestFailureAnalysis: Automated failure pattern analysis
+"""
+
+from uuid import UUID
+from datetime import datetime
+
+from sqlmodel import Field, SQLModel, Relationship, Column, Index
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY, TEXT
+
+from .base import TenantBaseModel, BaseModel, now_utc
+
+
+# =============================================================================
+# Database Models - APIToken
+# =============================================================================
+
+class APIToken(TenantBaseModel, table=True):
+    """
+    APIToken table - service and user API tokens.
+    
+    Supports:
+    - Personal access tokens
+    - Service tokens (Jenkins, CI/CD)
+    - Fine-grained scopes
+    """
+    
+    __tablename__ = "api_tokens"
+    
+    # Ownership
+    user_id: UUID | None = Field(
+        default=None,
+        foreign_key="users.id",
+        nullable=True,
+        index=True,
+    )
+    
+    # Identity
+    name: str = Field(max_length=255)
+    description: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Token
+    token_prefix: str = Field(max_length=20)  # First 8 chars, e.g., "qat_abcd"
+    token_hash: str = Field(max_length=255)  # Hashed full token
+    
+    # Scopes
+    scopes: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    
+    # Expiry
+    expires_at: datetime | None = None
+    
+    # Status
+    is_active: bool = Field(default=True)
+    last_used_at: datetime | None = None
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    user: "User | None" = Relationship()  # type: ignore
+    
+    __table_args__ = (
+        Index("idx_token_tenant_user", "tenant_id", "user_id"),
+        Index("idx_token_prefix", "token_prefix"),
+        Index("idx_token_active", "tenant_id", "is_active"),
+    )
+
+
+# =============================================================================
+# Database Models - AuditLog
+# =============================================================================
+
+class AuditLog(TenantBaseModel, table=True):
+    """
+    AuditLog table - user actions audit trail.
+    
+    Captures:
+    - User actions (create, update, delete)
+    - Resource changes
+    - API calls with context
+    """
+    
+    __tablename__ = "audit_logs"
+    
+    # Actor
+    user_id: UUID | None = Field(
+        default=None,
+        foreign_key="users.id",
+        nullable=True,
+        index=True,
+    )
+    
+    # Action
+    action: str = Field(max_length=100, index=True)  # 'create', 'update', 'delete', etc.
+    resource_type: str = Field(max_length=100, index=True)  # 'project', 'test_run', etc.
+    resource_id: UUID | None = None
+    
+    # Request context
+    http_method: str | None = Field(default=None, max_length=10)
+    endpoint: str | None = Field(default=None, max_length=500)
+    ip_address: str | None = Field(default=None, max_length=45)
+    user_agent: str | None = Field(default=None, max_length=500)
+    
+    # Change details
+    changes: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    user: "User | None" = Relationship()  # type: ignore
+    
+    __table_args__ = (
+        Index("idx_audit_tenant_action", "tenant_id", "action"),
+        Index("idx_audit_tenant_resource", "tenant_id", "resource_type", "resource_id"),
+        Index("idx_audit_created_at", "created_at"),
+        Index("idx_audit_user_created", "user_id", "created_at"),
+    )
+
+
+# =============================================================================
+# Database Models - SystemEvent
+# =============================================================================
+
+class SystemEvent(BaseModel, table=True):
+    """
+    SystemEvent table - system-level events for monitoring.
+    
+    NOTE: Not tenant-scoped - global events.
+    
+    Events:
+    - Worker lifecycle (started, stopped, crashed)
+    - Job execution (started, completed, failed)
+    - System health (high memory, disk full)
+    - Performance anomalies
+    """
+    
+    __tablename__ = "system_events"
+    
+    # Event
+    event_type: str = Field(max_length=100, index=True)
+    severity: str = Field(max_length=20, default="info", index=True)  # info, warning, error, critical
+    
+    # Source
+    source: str = Field(max_length=255, index=True)  # 'worker-01', 'scheduler', 'api'
+    source_type: str = Field(max_length=50)  # 'worker', 'service', 'api'
+    
+    # Content
+    message: str = Field(sa_column=Column(TEXT, nullable=False))
+    details: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Context
+    trace_id: str | None = Field(default=None, max_length=100)
+    tags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    
+    # Optional tenant context (for tenant-specific events)
+    tenant_id: UUID | None = Field(default=None, index=True)
+    
+    __table_args__ = (
+        Index("idx_system_event_type", "event_type", "severity"),
+        Index("idx_system_event_source", "source", "source_type"),
+        Index("idx_system_event_tenant", "tenant_id", "created_at"),
+        Index("idx_system_event_created", "created_at"),
+    )
+
+
+# =============================================================================
+# Database Models - TestCoverage
+# =============================================================================
+
+class TestCoverage(TenantBaseModel, table=True):
+    """
+    TestCoverage table - code coverage metrics per test run.
+    
+    Stores coverage data from tools like pytest-cov, coverage.py.
+    """
+    
+    __tablename__ = "test_coverage"
+    
+    # Relationships
+    test_run_id: UUID = Field(foreign_key="test_runs.id", index=True)
+    project_id: UUID = Field(foreign_key="projects.id", index=True)
+    
+    # Coverage metrics
+    total_statements: int = Field(default=0)
+    covered_statements: int = Field(default=0)
+    coverage_percentage: float = Field(default=0.0)
+    
+    # Detailed coverage (file-level)
+    file_coverage: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Branch coverage (optional)
+    total_branches: int | None = None
+    covered_branches: int | None = None
+    branch_coverage_percentage: float | None = None
+    
+    # Coverage report
+    report_url: str | None = Field(default=None, max_length=1000)
+    report_format: str | None = Field(default=None, max_length=50)  # 'html', 'xml', 'json'
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    test_run: "TestRun" = Relationship()  # type: ignore
+    project: "Project" = Relationship()  # type: ignore
+    
+    __table_args__ = (
+        Index("idx_coverage_tenant_run", "tenant_id", "test_run_id"),
+        Index("idx_coverage_tenant_project", "tenant_id", "project_id"),
+        Index("idx_coverage_percentage", "coverage_percentage"),
+    )
+
+
+# =============================================================================
+# Database Models - TestFailureAnalysis
+# =============================================================================
+
+class TestFailureAnalysis(TenantBaseModel, table=True):
+    """
+    TestFailureAnalysis table - automated failure pattern detection.
+    
+    Detects:
+    - Flaky tests
+    - Consistent failures
+    - New failures (regressions)
+    - Known issues
+    """
+    
+    __tablename__ = "test_failure_analysis"
+    
+    # Relationships
+    test_case_id: UUID = Field(foreign_key="test_cases.id", index=True)
+    
+    # Failure pattern
+    failure_pattern_hash: str = Field(max_length=64)  # Hash of error message/stacktrace
+    failure_message: str = Field(sa_column=Column(TEXT, nullable=False))
+    
+    # Detection
+    first_seen_at: datetime = Field(default_factory=now_utc)
+    last_seen_at: datetime = Field(default_factory=now_utc)
+    occurrence_count: int = Field(default=1)
+    
+    # Classification
+    is_flaky: bool = Field(default=False)
+    is_regression: bool = Field(default=False)
+    confidence_score: float = Field(default=0.0)  # 0.0 to 1.0
+    
+    # Related test runs
+    affected_run_ids: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    
+    # Analysis data
+    analysis_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Status
+    is_resolved: bool = Field(default=False)
+    resolved_at: datetime | None = None
+    resolution_notes: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    test_case: "TestCase" = Relationship()  # type: ignore
+    
+    __table_args__ = (
+        Index("idx_failure_tenant_test", "tenant_id", "test_case_id"),
+        Index("idx_failure_pattern", "failure_pattern_hash"),
+        Index("idx_failure_flaky", "tenant_id", "is_flaky"),
+        Index("idx_failure_resolved", "tenant_id", "is_resolved"),
+    )
+
+
+# =============================================================================
+# API Schemas - APIToken
+# =============================================================================
+
+class APITokenBase(SQLModel):
+    """Base schema for APIToken."""
+    name: str = Field(min_length=1, max_length=255)
+
+
+class APITokenCreate(APITokenBase):
+    """Request schema for creating an API token."""
+    description: str | None = None
+    scopes: list[str] = []
+    expires_at: datetime | None = None
+
+
+class APITokenPublic(APITokenBase):
+    """Public response schema for APIToken (without token)."""
+    id: UUID
+    tenant_id: UUID
+    user_id: UUID | None
+    description: str | None
+    token_prefix: str
+    scopes: list[str]
+    expires_at: datetime | None
+    is_active: bool
+    last_used_at: datetime | None
+    created_at: datetime
+
+
+class APITokenCreated(APITokenPublic):
+    """Response schema after creating a token (includes full token)."""
+    token: str  # Full token - only shown once at creation
+
+
+# =============================================================================
+# API Schemas - AuditLog
+# =============================================================================
+
+class AuditLogPublic(SQLModel):
+    """Public response schema for AuditLog."""
+    id: UUID
+    tenant_id: UUID
+    user_id: UUID | None
+    action: str
+    resource_type: str
+    resource_id: UUID | None
+    http_method: str | None
+    endpoint: str | None
+    ip_address: str | None
+    created_at: datetime
+
+
+class AuditLogDetail(AuditLogPublic):
+    """Detailed response schema for AuditLog."""
+    user_agent: str | None
+    changes: dict
+    meta_data: dict
+
+
+# =============================================================================
+# API Schemas - SystemEvent
+# =============================================================================
+
+class SystemEventPublic(SQLModel):
+    """Public response schema for SystemEvent."""
+    id: UUID
+    event_type: str
+    severity: str
+    source: str
+    source_type: str
+    message: str
+    tenant_id: UUID | None
+    created_at: datetime
+
+
+class SystemEventDetail(SystemEventPublic):
+    """Detailed response schema for SystemEvent."""
+    details: dict
+    trace_id: str | None
+    tags: list[str]
+
+
+# =============================================================================
+# API Schemas - TestCoverage
+# =============================================================================
+
+class TestCoveragePublic(SQLModel):
+    """Public response schema for TestCoverage."""
+    id: UUID
+    tenant_id: UUID
+    test_run_id: UUID
+    project_id: UUID
+    total_statements: int
+    covered_statements: int
+    coverage_percentage: float
+    total_branches: int | None
+    covered_branches: int | None
+    branch_coverage_percentage: float | None
+    report_url: str | None
+    created_at: datetime
+
+
+class TestCoverageDetail(TestCoveragePublic):
+    """Detailed response schema for TestCoverage."""
+    file_coverage: dict
+    report_format: str | None
+    meta_data: dict
+
+
+# =============================================================================
+# API Schemas - TestFailureAnalysis
+# =============================================================================
+
+class TestFailureAnalysisPublic(SQLModel):
+    """Public response schema for TestFailureAnalysis."""
+    id: UUID
+    tenant_id: UUID
+    test_case_id: UUID
+    failure_message: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+    occurrence_count: int
+    is_flaky: bool
+    is_regression: bool
+    confidence_score: float
+    is_resolved: bool
+    resolved_at: datetime | None
+    created_at: datetime
+
+
+class TestFailureAnalysisDetail(TestFailureAnalysisPublic):
+    """Detailed response schema for TestFailureAnalysis."""
+    failure_pattern_hash: str
+    affected_run_ids: list[str]
+    analysis_data: dict
+    resolution_notes: str | None
+    meta_data: dict
+
+
+# =============================================================================
+# Example Usage
+# =============================================================================
+
+"""
+# Creating an API token
+token = APIToken(
+    tenant_id=current_tenant_id,
+    user_id=current_user_id,
+    name="CI/CD Token",
+    token_prefix="qat_abcd1234",
+    token_hash=hash_token(full_token),
+    scopes=["test_runs:read", "test_runs:write"],
+    expires_at=datetime.now() + timedelta(days=90),
+)
+
+# Creating an audit log entry
+audit = AuditLog(
+    tenant_id=current_tenant_id,
+    user_id=current_user_id,
+    action="update",
+    resource_type="project",
+    resource_id=project_id,
+    http_method="PUT",
+    endpoint="/api/v1/projects/{id}",
+    ip_address="10.0.0.1",
+    changes={
+        "name": {"old": "Old Name", "new": "New Name"},
+    },
+)
+
+# Creating a system event
+event = SystemEvent(
+    event_type="worker.crashed",
+    severity="error",
+    source="celery-worker-01",
+    source_type="worker",
+    message="Worker crashed due to memory exhaustion",
+    details={
+        "exit_code": -9,
+        "memory_usage_mb": 8192,
+        "last_task_id": "abc123",
+    },
+    tags=["worker", "celery", "crash"],
+)
+"""
+
+"""
+Tenant and UserTenantRole models.
+
+Tenant represents an organization or application workspace.
+UserTenantRole maps users to tenants with specific roles.
+"""
+
+from uuid import UUID
+from datetime import datetime
+
+from sqlmodel import Field, SQLModel, Relationship, Column, Index
+from sqlalchemy.dialects.postgresql import JSONB
+
+from .base import (
+    BaseModel,
+    TENANT_TYPE_ORGANIZATION,
+    TENANT_TYPE_APPLICATION,
+    TENANT_STATUS_ACTIVE,
+    ROLE_VIEWER,
+)
+
+
+# =============================================================================
+# Database Models
+# =============================================================================
+
+class Tenant(BaseModel, table=True):
+    """
+    Tenant table - represents an organization or application workspace.
+    
+    Supports hierarchical structure: root organization → app tenants.
+    """
+    
+    __tablename__ = "tenants"
+    
+    # Hierarchy
+    parent_id: UUID | None = Field(
+        default=None,
+        foreign_key="tenants.id",
+        nullable=True,
+    )
+    
+    # Type and identification
+    type: str = Field(max_length=50, default=TENANT_TYPE_APPLICATION)
+    name: str = Field(max_length=255)
+    slug: str = Field(max_length=255, unique=True, index=True)
+    
+    # Configuration (JSONB for flexibility)
+    config: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Status
+    status: str = Field(max_length=50, default=TENANT_STATUS_ACTIVE)
+    
+    # Quotas
+    max_users: int | None = Field(default=100)
+    max_storage_gb: int | None = Field(default=50)
+    
+    # Relationships
+    parent: "Tenant | None" = Relationship(
+        back_populates="children",
+        sa_relationship_kwargs={
+            "remote_side": "Tenant.id",
+            "foreign_keys": "[Tenant.parent_id]",
+        },
+    )
+    children: list["Tenant"] = Relationship(back_populates="parent")
+    
+    __table_args__ = (
+        Index("idx_tenant_slug", "slug"),
+        Index("idx_tenant_parent", "parent_id"),
+    )
+
+
+class UserTenantRole(BaseModel, table=True):
+    """
+    UserTenantRole table - maps users to tenants with specific roles.
+    
+    Enables multi-tenant access control:
+    - One user can belong to multiple tenants
+    - Each user-tenant pair has a role (admin, engineer, viewer, etc.)
+    """
+    
+    __tablename__ = "user_tenant_roles"
+    
+    # Foreign keys
+    user_id: UUID = Field(foreign_key="users.id", index=True)
+    tenant_id: UUID = Field(foreign_key="tenants.id", index=True)
+    
+    # Role
+    role: str = Field(max_length=50, default=ROLE_VIEWER)
+    
+    # Audit trail
+    granted_at: datetime = Field(default_factory=lambda: datetime.utcnow())
+    granted_by: UUID | None = Field(default=None, foreign_key="users.id")
+    revoked_at: datetime | None = None
+    
+    # Relationships
+    user: "User" = Relationship(back_populates="tenant_roles")  # type: ignore
+    tenant: Tenant = Relationship()
+    
+    __table_args__ = (
+        # Unique constraint: one role per user-tenant pair
+        Index(
+            "idx_unique_user_tenant",
+            "user_id",
+            "tenant_id",
+            unique=True,
+            postgresql_where="revoked_at IS NULL",  # Only active roles
+        ),
+        Index("idx_user_tenant", "user_id", "tenant_id"),
+    )
+
+
+# =============================================================================
+# API Schemas
+# =============================================================================
+
+class TenantBase(SQLModel):
+    """Base schema for Tenant (shared fields)."""
+    name: str = Field(max_length=255, min_length=1)
+    slug: str = Field(
+        max_length=255,
+        min_length=1,
+        regex=r"^[a-z0-9-]+$",  # Lowercase, numbers, hyphens only
+    )
+    type: str = Field(default=TENANT_TYPE_APPLICATION)
+
+
+class TenantCreate(TenantBase):
+    """Request schema for creating a tenant."""
+    parent_id: UUID | None = None
+    max_users: int | None = 100
+    max_storage_gb: int | None = 50
+    config: dict = {}
+
+
+class TenantUpdate(SQLModel):
+    """Request schema for updating a tenant."""
+    name: str | None = None
+    status: str | None = None
+    max_users: int | None = None
+    max_storage_gb: int | None = None
+    config: dict | None = None
+
+
+class TenantPublic(TenantBase):
+    """Public response schema for Tenant."""
+    id: UUID
+    parent_id: UUID | None
+    status: str
+    max_users: int | None
+    max_storage_gb: int | None
+    created_at: datetime
+    
+    # Statistics (computed)
+    user_count: int = 0
+    project_count: int = 0
+
+
+class TenantDetail(TenantPublic):
+    """Detailed response schema for Tenant (includes config)."""
+    config: dict
+    updated_at: datetime
+
+
+# =============================================================================
+# UserTenantRole API Schemas
+# =============================================================================
+
+class UserTenantRoleBase(SQLModel):
+    """Base schema for UserTenantRole."""
+    role: str = Field(max_length=50)
+
+
+class UserTenantRoleCreate(UserTenantRoleBase):
+    """Request schema for granting role."""
+    user_id: UUID
+    tenant_id: UUID
+
+
+class UserTenantRolePublic(UserTenantRoleBase):
+    """Public response schema for UserTenantRole."""
+    id: UUID
+    user_id: UUID
+    tenant_id: UUID
+    granted_at: datetime
+    granted_by: UUID | None
+    
+    # Nested user info (if needed)
+    class UserInfo(SQLModel):
+        id: UUID
+        username: str
+        email: str
+    
+    user: UserInfo | None = None
+
+
+# =============================================================================
+# Example Usage
+# =============================================================================
+
+"""
+# Creating a tenant
+tenant = Tenant(
+    name="Engineering Team",
+    slug="engineering",
+    type=TENANT_TYPE_APPLICATION,
+    parent_id=root_tenant_id,
+)
+
+# API endpoint
+@router.post("/tenants", response_model=TenantPublic)
+async def create_tenant(
+    data: TenantCreate,
+    session: Session = Depends(get_session),
+):
+    tenant = Tenant(**data.model_dump())
+    session.add(tenant)
+    session.commit()
+    session.refresh(tenant)
+    return tenant
+"""
+
+"""
+Test execution models: TestCase, TestRun, TestResult.
+
+TestCase: Individual test definition
+TestRun: Execution of a test suite
+TestResult: Result of a single test within a run
+"""
+
+from uuid import UUID
+from datetime import datetime
+
+from sqlmodel import Field, SQLModel, Relationship, Column, Index
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY, TEXT
+
+from .base import (
+    TenantBaseModel,
+    STATUS_QUEUED,
+    STATUS_RUNNING,
+    STATUS_COMPLETED,
+    RESULT_PASSED,
+    TRIGGER_MANUAL,
+    FRAMEWORK_PYTEST,
+)
+
+
+# =============================================================================
+# Database Models - TestCase
+# =============================================================================
+
+class TestCase(TenantBaseModel, table=True):
+    """
+    TestCase table - individual test definition.
+    
+    Auto-discovered from test execution or repository scans.
+    """
+    
+    __tablename__ = "test_cases"
+    
+    # Suite relationship
+    suite_id: UUID = Field(foreign_key="test_suites.id", index=True)
+    
+    # Identification
+    name: str = Field(max_length=500, index=True)
+    test_id: str = Field(max_length=1000, index=True)  # Framework-specific ID
+    
+    # Location
+    file_path: str = Field(max_length=1000)
+    line_number: int | None = None
+    
+    # Content
+    description: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Classification
+    category: str | None = Field(default=None, max_length=100)
+    priority: str | None = Field(default=None, max_length=50)
+    tags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    
+    # Status
+    is_active: bool = Field(default=True)
+    is_automated: bool = Field(default=True)
+    is_flaky: bool = Field(default=False)
+    
+    # Cached metrics (updated by background jobs)
+    avg_duration_seconds: float | None = None
+    pass_rate_percent: float | None = None
+    last_run_status: str | None = None
+    last_run_at: datetime | None = None
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    suite: "TestSuite" = Relationship(back_populates="test_cases")  # type: ignore
+    results: list["TestResult"] = Relationship(back_populates="test_case")
+    
+    __table_args__ = (
+        Index("idx_test_case_tenant_test_id", "tenant_id", "test_id"),
+        Index("idx_test_case_suite", "suite_id"),
+        Index("idx_test_case_active", "tenant_id", "is_active"),
+    )
+
+
+# =============================================================================
+# Database Models - TestRun
+# =============================================================================
+
+class TestRun(TenantBaseModel, table=True):
+    """
+    TestRun table - execution of a test suite.
+    
+    Tracks:
+    - What tests were run
+    - Where they ran (worker)
+    - Results (passed/failed/skipped)
+    - Artifacts (logs, reports)
+    """
+    
+    __tablename__ = "test_runs"
+    
+    # Relationships
+    project_id: UUID | None = Field(default=None, foreign_key="projects.id", index=True)
+    suite_id: UUID | None = Field(default=None, foreign_key="test_suites.id", index=True)
+    worker_id: UUID | None = Field(default=None, foreign_key="test_workers.id", index=True)
+    schedule_id: UUID | None = Field(default=None, foreign_key="schedules.id")
+    
+    # Identification
+    name: str = Field(max_length=500)
+    run_number: int  # Auto-incrementing per tenant
+    
+    # Source
+    trigger_type: str = Field(max_length=50, default=TRIGGER_MANUAL)
+    triggered_by: UUID | None = Field(default=None, foreign_key="users.id")
+    
+    # Jenkins/Webhook Integration
+    webhook_source: str | None = Field(default=None, max_length=100)
+    jenkins_job_name: str | None = Field(default=None, max_length=500)
+    jenkins_build_number: int | None = None
+    jenkins_url: str | None = Field(default=None, max_length=1000)
+    
+    # Repository Context
+    repository_url: str | None = Field(default=None, max_length=500)
+    branch: str = Field(default="main", max_length=255)
+    commit_hash: str | None = Field(default=None, max_length=100, index=True)
+    commit_message: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Release tracking (flexible string, not FK)
+    release_id: str | None = Field(default=None, max_length=255, index=True)
+    release_name: str | None = Field(default=None, max_length=255)
+    
+    # Test Framework
+    test_framework: str = Field(default=FRAMEWORK_PYTEST, max_length=50)
+    test_framework_version: str | None = Field(default=None, max_length=50)
+    
+    # Test Selection
+    test_tags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    test_filter: str | None = Field(default=None, max_length=1000)
+    
+    # Execution
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: int | None = None
+    
+    # Status
+    status: str = Field(max_length=50, default=STATUS_QUEUED, index=True)
+    
+    # Aggregated Results (updated as tests complete - streaming model)
+    total_tests: int = Field(default=0)
+    passed_tests: int = Field(default=0)
+    failed_tests: int = Field(default=0)
+    skipped_tests: int = Field(default=0)
+    error_tests: int = Field(default=0)
+    
+    # Coverage
+    coverage_percent: float | None = None
+    coverage_report_url: str | None = Field(default=None, max_length=1000)
+    
+    # Artifacts
+    log_url: str | None = Field(default=None, max_length=1000)
+    report_url: str | None = Field(default=None, max_length=1000)
+    artifacts: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    project: "Project | None" = Relationship()  # type: ignore
+    suite: "TestSuite | None" = Relationship()  # type: ignore
+    worker: "TestWorker | None" = Relationship(back_populates="test_runs")  # type: ignore
+    schedule: "Schedule | None" = Relationship()  # type: ignore
+    results: list["TestResult"] = Relationship(
+        back_populates="test_run",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    
+    __table_args__ = (
+        Index("idx_test_run_tenant_created", "tenant_id", "created_at"),
+        Index("idx_test_run_tenant_status", "tenant_id", "status"),
+        Index("idx_test_run_worker_status", "worker_id", "status"),
+        Index("idx_test_run_release", "tenant_id", "release_id"),
+    )
+
+
+# =============================================================================
+# Database Models - TestResult
+# =============================================================================
+
+class TestResult(TenantBaseModel, table=True):
+    """
+    TestResult table - result of a single test case within a run.
+    
+    Created as tests complete (streaming model).
+    """
+    
+    __tablename__ = "test_results"
+    
+    # Relationships
+    test_run_id: UUID = Field(foreign_key="test_runs.id", index=True)
+    test_case_id: UUID | None = Field(
+        default=None,
+        foreign_key="test_cases.id",
+        nullable=True,
+        index=True,
+    )
+    
+    # Identification (denormalized for when test_case doesn't exist yet)
+    test_id: str = Field(max_length=1000, index=True)
+    test_name: str = Field(max_length=500)
+    file_path: str = Field(max_length=1000)
+    class_name: str | None = Field(default=None, max_length=500)
+    
+    # Execution
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: float = Field(default=0.0)
+    
+    # Result
+    status: str = Field(max_length=50, default=RESULT_PASSED, index=True)
+    
+    # Failure details
+    error_message: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    error_type: str | None = Field(default=None, max_length=255)
+    stack_trace: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Output
+    stdout: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    stderr: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Attachments (URLs)
+    screenshots: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    log_files: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    test_run: TestRun = Relationship(back_populates="results")
+    test_case: TestCase | None = Relationship(back_populates="results")
+    
+    __table_args__ = (
+        Index("idx_test_result_run_status", "test_run_id", "status"),
+        Index("idx_test_result_tenant_case", "tenant_id", "test_case_id"),
+        Index("idx_test_result_tenant_run", "tenant_id", "test_run_id"),
+    )
+
+
+# =============================================================================
+# API Schemas - TestCase
+# =============================================================================
+
+class TestCaseBase(SQLModel):
+    """Base schema for TestCase."""
+    name: str = Field(min_length=1, max_length=500)
+    test_id: str = Field(min_length=1, max_length=1000)
+    file_path: str
+
+
+class TestCasePublic(TestCaseBase):
+    """Public response schema for TestCase."""
+    id: UUID
+    tenant_id: UUID
+    suite_id: UUID
+    line_number: int | None
+    description: str | None
+    category: str | None
+    priority: str | None
+    tags: list[str]
+    is_active: bool
+    is_flaky: bool
+    avg_duration_seconds: float | None
+    pass_rate_percent: float | None
+    last_run_status: str | None
+    last_run_at: datetime | None
+
+
+# =============================================================================
+# API Schemas - TestRun
+# =============================================================================
+
+class TestRunBase(SQLModel):
+    """Base schema for TestRun."""
+    name: str = Field(min_length=1, max_length=500)
+
+
+class TestRunCreate(TestRunBase):
+    """Request schema for creating a test run."""
+    project_id: UUID | None = None
+    suite_id: UUID | None = None
+    branch: str = "main"
+    test_tags: list[str] = []
+    test_filter: str | None = None
+    worker_assignment: dict = {}  # {"mode": "tags", "required_tags": ["linux"]}
+    meta_data: dict = {}
+
+
+class TestRunUpdate(SQLModel):
+    """Request schema for updating test run (internal use)."""
+    status: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: int | None = None
+    total_tests: int | None = None
+    passed_tests: int | None = None
+    failed_tests: int | None = None
+    skipped_tests: int | None = None
+    error_tests: int | None = None
+
+
+class TestRunPublic(TestRunBase):
+    """Public response schema for TestRun."""
+    id: UUID
+    tenant_id: UUID
+    run_number: int
+    status: str
+    trigger_type: str
+    branch: str
+    commit_hash: str | None
+    release_id: str | None
+    release_name: str | None
+    test_framework: str
+    started_at: datetime | None
+    completed_at: datetime | None
+    duration_seconds: int | None
+    total_tests: int
+    passed_tests: int
+    failed_tests: int
+    skipped_tests: int
+    error_tests: int
+    coverage_percent: float | None
+    created_at: datetime
+    
+    # Computed
+    @property
+    def pass_rate(self) -> float | None:
+        if self.total_tests == 0:
+            return None
+        return (self.passed_tests / self.total_tests) * 100
+
+
+class TestRunDetail(TestRunPublic):
+    """Detailed response schema for TestRun."""
+    project_id: UUID | None
+    suite_id: UUID | None
+    worker_id: UUID | None
+    repository_url: str | None
+    commit_message: str | None
+    test_tags: list[str]
+    test_filter: str | None
+    log_url: str | None
+    report_url: str | None
+    artifacts: dict
+    meta_data: dict
+    updated_at: datetime
+
+
+# =============================================================================
+# API Schemas - TestResult
+# =============================================================================
+
+class TestResultPublic(SQLModel):
+    """Public response schema for TestResult."""
+    id: UUID
+    test_run_id: UUID
+    test_case_id: UUID | None
+    test_id: str
+    test_name: str
+    file_path: str
+    status: str
+    duration_seconds: float
+    error_message: str | None
+    error_type: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+
+
+class TestResultDetail(TestResultPublic):
+    """Detailed response schema for TestResult."""
+    class_name: str | None
+    stack_trace: str | None
+    stdout: str | None
+    stderr: str | None
+    screenshots: list[str]
+    log_files: list[str]
+    meta_data: dict
+
+
+# =============================================================================
+# Example Usage
+# =============================================================================
+
+"""
+# Creating a test run
+test_run = TestRun(
+    tenant_id=current_tenant_id,
+    name="Nightly Regression",
+    run_number=get_next_run_number(tenant_id),
+    project_id=project_id,
+    suite_id=suite_id,
+    trigger_type=TRIGGER_SCHEDULED,
+    status=STATUS_QUEUED,
+)
+
+# Recording a test result (streaming model)
+test_result = TestResult(
+    tenant_id=current_tenant_id,
+    test_run_id=test_run.id,
+    test_id="tests/test_api.py::test_login",
+    test_name="test_login",
+    file_path="tests/test_api.py",
+    status=RESULT_PASSED,
+    duration_seconds=1.23,
+    started_at=datetime.utcnow(),
+    completed_at=datetime.utcnow(),
+)
+"""
+
+"""
+User and authentication models.
+
+User represents a system user with authentication credentials.
+Supports both local authentication and SSO/LDAP.
+"""
+
+from uuid import UUID
+from datetime import datetime
+
+from sqlmodel import Field, SQLModel, Relationship, Column, Index
+from pydantic import EmailStr
+
+from .base import BaseModel
+
+
+# =============================================================================
+# Database Models
+# =============================================================================
+
+class User(BaseModel, table=True):
+    """
+    User table - system users with authentication.
+    
+    Supports:
+    - Local authentication (email + hashed_password)
+    - SSO/LDAP (sso_provider + sso_id)
+    """
+    
+    __tablename__ = "users"
+    
+    # Identity
+    email: str = Field(max_length=255, unique=True, index=True)
+    username: str = Field(max_length=100, unique=True, index=True)
+    
+    # Authentication
+    hashed_password: str | None = Field(
+        default=None,
+        max_length=255,
+    )  # None if SSO-only
+    sso_provider: str | None = Field(default=None, max_length=50)  # 'ldap', 'okta', 'azure_ad'
+    sso_id: str | None = Field(default=None, max_length=255)  # External ID from SSO
+    
+    # Profile
+    full_name: str = Field(max_length=255)
+    avatar_url: str | None = Field(default=None, max_length=500)
+    
+    # Status
+    is_active: bool = Field(default=True)
+    is_superuser: bool = Field(default=False)  # Global system admin
+    
+    # Timestamps
+    last_login_at: datetime | None = None
+    
+    # Relationships
+    tenant_roles: list["UserTenantRole"] = Relationship(back_populates="user")  # type: ignore
+    
+    __table_args__ = (
+        Index("idx_user_email", "email"),
+        Index("idx_user_username", "username"),
+        Index("idx_user_sso", "sso_provider", "sso_id"),
+    )
+
+
+# =============================================================================
+# API Schemas
+# =============================================================================
+
+class UserBase(SQLModel):
+    """Base schema for User (shared fields)."""
+    email: EmailStr
+    username: str = Field(min_length=3, max_length=100, regex=r"^[a-zA-Z0-9_-]+$")
+    full_name: str = Field(min_length=1, max_length=255)
+
+
+class UserCreate(UserBase):
+    """Request schema for creating a user."""
+    password: str = Field(min_length=8, max_length=100)
+    is_superuser: bool = False
+
+
+class UserRegister(SQLModel):
+    """Public registration schema (limited fields)."""
+    email: EmailStr
+    username: str = Field(min_length=3, max_length=100)
+    full_name: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=8, max_length=100)
+
+
+class UserUpdate(SQLModel):
+    """Request schema for updating a user."""
+    email: EmailStr | None = None
+    username: str | None = None
+    full_name: str | None = None
+    avatar_url: str | None = None
+    is_active: bool | None = None
+
+
+class UserPublic(UserBase):
+    """Public response schema for User (no sensitive data)."""
+    id: UUID
+    avatar_url: str | None
+    is_active: bool
+    is_superuser: bool
+    last_login_at: datetime | None
+    created_at: datetime
+
+
+class UserDetail(UserPublic):
+    """Detailed response schema for User (includes SSO info)."""
+    sso_provider: str | None
+    updated_at: datetime
+    
+    # Tenant roles (optional, loaded on demand)
+    class TenantRoleInfo(SQLModel):
+        tenant_id: UUID
+        tenant_name: str
+        role: str
+    
+    tenant_roles: list[TenantRoleInfo] = []
+
+
+class UserWithPassword(UserPublic):
+    """
+    Internal schema with password (for authentication only).
+    NEVER expose in API responses!
+    """
+    hashed_password: str | None
+
+
+# =============================================================================
+# Authentication Schemas
+# =============================================================================
+
+class UserLogin(SQLModel):
+    """Login request schema."""
+    email: EmailStr
+    password: str
+
+
+class Token(SQLModel):
+    """Token response schema."""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds
+
+
+class TokenPayload(SQLModel):
+    """JWT token payload."""
+    sub: UUID  # user_id (subject)
+    tenant_id: UUID | None = None
+    exp: int  # expiration timestamp
+    iat: int  # issued at timestamp
+    type: str = "access"  # 'access' or 'refresh'
+
+
+class RefreshToken(SQLModel):
+    """Refresh token request schema."""
+    refresh_token: str
+
+
+class PasswordChange(SQLModel):
+    """Password change request schema."""
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=100)
+
+
+class PasswordReset(SQLModel):
+    """Password reset request schema."""
+    email: EmailStr
+
+
+class PasswordResetConfirm(SQLModel):
+    """Password reset confirmation schema."""
+    token: str
+    new_password: str = Field(min_length=8, max_length=100)
+
+
+# =============================================================================
+# Example Usage
+# =============================================================================
+
+"""
+# Creating a user
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+user = User(
+    email="user@example.com",
+    username="johndoe",
+    full_name="John Doe",
+    hashed_password=pwd_context.hash("secretpassword123"),
+)
+
+# API endpoint
+@router.post("/auth/register", response_model=UserPublic)
+async def register(
+    data: UserRegister,
+    session: Session = Depends(get_session),
+):
+    # Hash password
+    hashed = pwd_context.hash(data.password)
+    
+    # Create user
+    user = User(
+        **data.model_dump(exclude={"password"}),
+        hashed_password=hashed,
+    )
+    
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    
+    return user  # Auto-converts to UserPublic (excludes hashed_password)
+"""
+
+"""
+Worker models: TestWorker, WorkerTemplate, Schedule.
+
+TestWorker: Celery/Jenkins/custom workers that execute tests
+WorkerTemplate: Reusable worker configurations for VM provisioning
+Schedule: Cron-based test run scheduling
+"""
+
+from uuid import UUID
+from datetime import datetime
+
+from sqlmodel import Field, SQLModel, Relationship, Column, Index
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY, TEXT
+
+from .base import (
+    TenantBaseModel,
+    WORKER_ONLINE,
+    WORKER_TYPE_CELERY,
+)
+
+
+# =============================================================================
+# Database Models - TestWorker
+# =============================================================================
+
+class TestWorker(TenantBaseModel, table=True):
+    """
+    TestWorker table - workers that execute tests.
+    
+    Types:
+    - celery: Celery workers on VMs
+    - jenkins: Jenkins agents
+    - custom: Custom execution agents
+    """
+    
+    __tablename__ = "test_workers"
+    
+    # Identity
+    name: str = Field(max_length=255, index=True)
+    worker_type: str = Field(max_length=50, default=WORKER_TYPE_CELERY, index=True)
+    
+    # Status
+    status: str = Field(max_length=50, default="offline", index=True)
+    is_available: bool = Field(default=True)
+    
+    # Capabilities
+    os: str | None = Field(default=None, max_length=100)
+    arch: str | None = Field(default=None, max_length=50)  # 'x86_64', 'arm64'
+    capabilities: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Worker-specific configuration
+    worker_config: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Tags for flexible targeting
+    tags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    
+    # Resource limits
+    max_concurrent_runs: int = Field(default=1)
+    current_active_runs: int = Field(default=0)
+    
+    # Health
+    last_heartbeat_at: datetime | None = Field(default=None, index=True)
+    health_metrics: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Template (if provisioned from template)
+    template_id: UUID | None = Field(
+        default=None,
+        foreign_key="worker_templates.id",
+        nullable=True,
+    )
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    test_runs: list["TestRun"] = Relationship(back_populates="worker")  # type: ignore
+    template: "WorkerTemplate | None" = Relationship(back_populates="workers")
+    
+    __table_args__ = (
+        Index("idx_worker_tenant_status", "tenant_id", "status"),
+        Index("idx_worker_tenant_type", "tenant_id", "worker_type"),
+        Index("idx_worker_heartbeat", "last_heartbeat_at"),
+        Index("idx_worker_available", "tenant_id", "is_available", "status"),
+    )
+
+
+# =============================================================================
+# Database Models - WorkerTemplate
+# =============================================================================
+
+class WorkerTemplate(TenantBaseModel, table=True):
+    """
+    WorkerTemplate table - reusable worker configurations.
+    
+    Used for VM provisioning with Fabric.
+    """
+    
+    __tablename__ = "worker_templates"
+    
+    # Identity
+    name: str = Field(max_length=255, index=True)
+    description: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    worker_type: str = Field(max_length=50, default=WORKER_TYPE_CELERY)
+    
+    # Default configuration
+    default_tags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    default_capabilities: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # VM/Infrastructure settings
+    os: str = Field(max_length=100)
+    arch: str = Field(max_length=50, default="x86_64")
+    max_concurrent_runs: int = Field(default=4)
+    
+    # Provisioning config (for Fabric)
+    provisioning_config: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Status
+    is_active: bool = Field(default=True)
+    
+    # Metadata
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    workers: list[TestWorker] = Relationship(back_populates="template")
+    
+    __table_args__ = (
+        Index("idx_template_tenant_type", "tenant_id", "worker_type"),
+        Index("idx_template_active", "tenant_id", "is_active"),
+    )
+
+
+# =============================================================================
+# Database Models - Schedule
+# =============================================================================
+
+class Schedule(TenantBaseModel, table=True):
+    """
+    Schedule table - cron-based test run scheduling.
+    
+    Integrates with Celery Beat for execution.
+    """
+    
+    __tablename__ = "schedules"
+    
+    # Relationships
+    project_id: UUID = Field(foreign_key="projects.id", index=True)
+    suite_id: UUID | None = Field(default=None, foreign_key="test_suites.id", nullable=True)
+    
+    # Identity
+    name: str = Field(max_length=255)
+    description: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
+    # Schedule
+    cron_expression: str = Field(max_length=100)  # Standard cron format
+    timezone: str = Field(max_length=50, default="UTC")
+    
+    # Test configuration
+    test_tags: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(ARRAY(TEXT), nullable=False, server_default="{}"),
+    )
+    branch: str = Field(default="main", max_length=255)
+    
+    # Worker assignment
+    worker_assignment: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Status
+    is_active: bool = Field(default=True)
+    last_run_at: datetime | None = None
+    next_run_at: datetime | None = None
+    
+    # Metadata
+    created_by: UUID = Field(foreign_key="users.id")
+    meta_data: dict = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
+    
+    # Relationships
+    project: "Project" = Relationship()  # type: ignore
+    suite: "TestSuite | None" = Relationship()  # type: ignore
+    test_runs: list["TestRun"] = Relationship(back_populates="schedule")  # type: ignore
+    
+    __table_args__ = (
+        Index("idx_schedule_tenant_project", "tenant_id", "project_id"),
+        Index("idx_schedule_active", "tenant_id", "is_active"),
+    )
+
+
+# =============================================================================
+# API Schemas - TestWorker
+# =============================================================================
+
+class TestWorkerBase(SQLModel):
+    """Base schema for TestWorker."""
+    name: str = Field(min_length=1, max_length=255)
+    worker_type: str = WORKER_TYPE_CELERY
+
+
+class TestWorkerCreate(TestWorkerBase):
+    """Request schema for registering a worker."""
+    os: str | None = None
+    arch: str | None = None
+    capabilities: dict = {}
+    worker_config: dict = {}
+    tags: list[str] = []
+    max_concurrent_runs: int = 1
+    template_id: UUID | None = None
+
+
+class TestWorkerUpdate(SQLModel):
+    """Request schema for updating a worker."""
+    status: str | None = None
+    is_available: bool | None = None
+    current_active_runs: int | None = None
+    tags: list[str] | None = None
+    capabilities: dict | None = None
+
+
+class TestWorkerHeartbeat(SQLModel):
+    """Request schema for worker heartbeat."""
+    status: str = WORKER_ONLINE
+    current_active_runs: int = 0
+    health_metrics: dict = {}
+
+
+class TestWorkerPublic(TestWorkerBase):
+    """Public response schema for TestWorker."""
+    id: UUID
+    tenant_id: UUID
+    status: str
+    is_available: bool
+    os: str | None
+    arch: str | None
+    tags: list[str]
+    max_concurrent_runs: int
+    current_active_runs: int
+    last_heartbeat_at: datetime | None
+    created_at: datetime
+
+
+class TestWorkerDetail(TestWorkerPublic):
+    """Detailed response schema for TestWorker."""
+    capabilities: dict
+    worker_config: dict
+    health_metrics: dict
+    template_id: UUID | None
+    meta_data: dict
+    updated_at: datetime
+
+
+# =============================================================================
+# API Schemas - WorkerTemplate
+# =============================================================================
+
+class WorkerTemplateBase(SQLModel):
+    """Base schema for WorkerTemplate."""
+    name: str = Field(min_length=1, max_length=255)
+    worker_type: str = WORKER_TYPE_CELERY
+
+
+class WorkerTemplateCreate(WorkerTemplateBase):
+    """Request schema for creating a worker template."""
+    description: str | None = None
+    default_tags: list[str] = []
+    default_capabilities: dict = {}
+    os: str
+    arch: str = "x86_64"
+    max_concurrent_runs: int = 4
+    provisioning_config: dict = {}
+
+
+class WorkerTemplatePublic(WorkerTemplateBase):
+    """Public response schema for WorkerTemplate."""
+    id: UUID
+    tenant_id: UUID
+    description: str | None
+    default_tags: list[str]
+    default_capabilities: dict
+    os: str
+    arch: str
+    max_concurrent_runs: int
+    is_active: bool
+    created_at: datetime
+
+
+class WorkerTemplateDetail(WorkerTemplatePublic):
+    """Detailed response schema for WorkerTemplate."""
+    provisioning_config: dict
+    meta_data: dict
+    updated_at: datetime
+
+
+# =============================================================================
+# API Schemas - Schedule
+# =============================================================================
+
+class ScheduleBase(SQLModel):
+    """Base schema for Schedule."""
+    name: str = Field(min_length=1, max_length=255)
+    cron_expression: str = Field(min_length=1, max_length=100)
+
+
+class ScheduleCreate(ScheduleBase):
+    """Request schema for creating a schedule."""
+    project_id: UUID
+    suite_id: UUID | None = None
+    description: str | None = None
+    timezone: str = "UTC"
+    test_tags: list[str] = []
+    branch: str = "main"
+    worker_assignment: dict = {}
+    is_active: bool = True
+
+
+class ScheduleUpdate(SQLModel):
+    """Request schema for updating a schedule."""
+    name: str | None = None
+    description: str | None = None
+    cron_expression: str | None = None
+    timezone: str | None = None
+    test_tags: list[str] | None = None
+    branch: str | None = None
+    worker_assignment: dict | None = None
+    is_active: bool | None = None
+
+
+class SchedulePublic(ScheduleBase):
+    """Public response schema for Schedule."""
+    id: UUID
+    tenant_id: UUID
+    project_id: UUID
+    suite_id: UUID | None
+    description: str | None
+    timezone: str
+    branch: str
+    is_active: bool
+    last_run_at: datetime | None
+    next_run_at: datetime | None
+    created_at: datetime
+
+
+class ScheduleDetail(SchedulePublic):
+    """Detailed response schema for Schedule."""
+    test_tags: list[str]
+    worker_assignment: dict
+    meta_data: dict
+    created_by: UUID
+    updated_at: datetime
+
+
+# =============================================================================
+# Example Usage
+# =============================================================================
+
+"""
+# Registering a worker
+worker = TestWorker(
+    tenant_id=current_tenant_id,
+    name="celery-worker-01",
+    worker_type=WORKER_TYPE_CELERY,
+    os="Ubuntu 22.04",
+    arch="x86_64",
+    tags=["linux", "python3.12", "docker"],
+    capabilities={
+        "python_versions": ["3.10", "3.11", "3.12"],
+        "docker": True,
+        "max_parallel_runs": 4,
+    },
+    max_concurrent_runs=4,
+)
+
+# Creating a schedule
+schedule = Schedule(
+    tenant_id=current_tenant_id,
+    project_id=project_id,
+    name="Nightly Regression",
+    cron_expression="0 2 * * *",  # 2 AM daily
+    timezone="UTC",
+    test_tags=["regression"],
+    branch="main",
+    created_by=current_user_id,
+)
+"""
+
+"""Database models."""
+from database.models.base import BaseModel, TenantBaseModel
+from database.models.tenant import Tenant, UserTenantRole
+from database.models.user import User
+from database.models.project import Project, TestSuite
+from database.models.test_models import TestCase, TestRun, TestResult
+from database.models.worker import TestWorker, WorkerTemplate, Schedule
+from database.models.system import APIToken, AuditLog, SystemEvent
+
+__all__ = [
+    "BaseModel",
+    "TenantBaseModel",
+    "Tenant",
+    "UserTenantRole",
+    "User",
+    "Project",
+    "TestSuite",
+    "TestCase",
+    "TestRun",
+    "TestResult",
+    "TestWorker",
+    "WorkerTemplate",
+    "Schedule",
+    "APIToken",
+    "AuditLog",
+    "SystemEvent",
+]
+

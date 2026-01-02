@@ -1,0 +1,1 @@
+"""QA Manager tests."""
