@@ -34,8 +34,9 @@ class TestCaseRepository(BaseRepository[TestCase]):
         self,
         suite_id: UUID,
         organization_id: UUID,
+        tags: list[str] | None = None,
     ) -> list[TestCase]:
-        """Get all test cases for a suite."""
+        """Get all test cases for a suite, optionally filtered by tags."""
         stmt = select(TestCase).where(
             and_(
                 TestCase.organization_id == organization_id,
@@ -43,6 +44,11 @@ class TestCaseRepository(BaseRepository[TestCase]):
                 TestCase.deleted_at.is_(None),
             )
         )
+        
+        if tags:
+            # Filter by tags using PostgreSQL array overlap operator
+            stmt = stmt.where(TestCase.tags.op("&&")(tags))
+        
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
     
@@ -66,8 +72,9 @@ class TestCaseRepository(BaseRepository[TestCase]):
         self,
         suite_id: UUID,
         organization_id: UUID,
+        tags: list[str] | None = None,
     ) -> list[TestCase]:
-        """Get all active test cases for a suite."""
+        """Get all active test cases for a suite, optionally filtered by tags."""
         stmt = select(TestCase).where(
             and_(
                 TestCase.organization_id == organization_id,
@@ -76,6 +83,11 @@ class TestCaseRepository(BaseRepository[TestCase]):
                 TestCase.deleted_at.is_(None),
             )
         )
+        
+        if tags:
+            # Filter by tags using PostgreSQL array overlap operator
+            stmt = stmt.where(TestCase.tags.op("&&")(tags))
+        
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
     

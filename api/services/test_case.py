@@ -74,6 +74,7 @@ class TestCaseService:
         suite_id: UUID,
         organization_id: UUID,
         active_only: bool = False,
+        tags: list[str] | None = None,
     ) -> list[TestCase]:
         """List test cases for a suite."""
         # Verify suite exists
@@ -88,11 +89,13 @@ class TestCaseService:
             return await self.repository.get_active_by_suite(
                 suite_id,
                 organization_id,
+                tags,
             )
         
         return await self.repository.get_by_suite(
             suite_id,
             organization_id,
+            tags,
         )
     
     async def update_test_case(

@@ -61,9 +61,10 @@ class ProjectRepository(BaseRepository[Project]):
         )
         
         if tags:
-            # Filter by tags (project must have at least one of the specified tags)
-            # Note: This requires tags field in Project model
-            pass  # TODO: Implement tag filtering when tags field is added
+            # Filter projects that have ANY of the specified tags (array overlap)
+            # PostgreSQL && operator checks if arrays have common elements
+            from sqlalchemy.dialects.postgresql import array
+            query = query.where(Project.tags.op("&&")(tags))
         
         query = query.offset(skip).limit(limit).order_by(Project.created_at.desc())
         
@@ -89,11 +90,26 @@ class ProjectRepository(BaseRepository[Project]):
         )
         suite_count = suite_count_result.scalar_one()
         
+        # Get test case count (TestCase relates to project via TestSuite)
+        from database.models.test_models import TestCase
+        case_count_result = await self.db.execute(
+            select(func.count(TestCase.id))
+            .join(TestSuite, TestCase.suite_id == TestSuite.id)
+            .where(
+                and_(
+                    TestSuite.project_id == project_id,
+                    TestCase.deleted_at.is_(None),
+                    TestSuite.deleted_at.is_(None),
+                )
+            )
+        )
+        case_count = case_count_result.scalar_one()
+        
         # Return as dict with stats
         return {
             "project": project,
             "test_suite_count": suite_count,
-            "test_case_count": 0,  # TODO: Implement when TestCase exists
+            "test_case_count": case_count,
         }
     
     async def archive(self, project_id: UUID) -> Project:

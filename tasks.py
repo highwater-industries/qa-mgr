@@ -295,9 +295,15 @@ def process_due_schedules() -> dict:
                         f"Created TestRun {test_run.id}"
                     )
                     
-                    # TODO: Queue the test run to an available worker
-                    # For now, the test run is created with status=queued
-                    # A separate job assignment process would pick it up
+                    # Queue the test run to Celery for execution
+                    # The execute_test_run task will publish to RabbitMQ for workers
+                    try:
+                        from tasks import execute_test_run
+                        execute_test_run.delay(str(test_run.id))
+                        logger.info(f"Queued test run {test_run.id} to Celery")
+                    except Exception as queue_err:
+                        logger.error(f"Failed to queue test run {test_run.id}: {queue_err}")
+                        # Test run stays in 'queued' status - can be manually retried
                     
                 except Exception as sched_err:
                     logger.error(f"Error triggering schedule {schedule.id}: {sched_err}")

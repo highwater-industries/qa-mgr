@@ -37,11 +37,24 @@ async def verify_webhook_auth(
     
     # Try webhook secret
     if webhook_secret:
-        # TODO: Implement webhook secret validation against projects table
-        # For now, reject webhook secret auth
+        # Validate webhook secret against projects table
+        from database.models.project import Project
+        result = await db.execute(
+            select(Project).where(
+                and_(
+                    Project.webhook_secret == webhook_secret,
+                    Project.deleted_at.is_(None),
+                )
+            )
+        )
+        project = result.scalar_one_or_none()
+        if project:
+            return project.organization_id
+        
+        # Invalid webhook secret
         raise HTTPException(
             status_code=401,
-            detail="Webhook secret authentication not yet implemented. Use API token authentication.",
+            detail="Invalid webhook secret",
         )
     
     raise HTTPException(

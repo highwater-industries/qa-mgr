@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from database.models.user import User
 from database.models.organization import UserOrganizationRole, Organization
+from database.models.base import ROLE_ADMIN
 from database.config import get_db
 from api.dependencies import get_current_user
 from api.repositories.user import UserRepository
@@ -26,6 +27,29 @@ from api.schemas.user_organization import (
 )
 
 router = APIRouter()
+
+
+async def check_organization_admin_permission(
+    current_user: User,
+    organization_id: UUID,
+    db: AsyncSession,
+) -> bool:
+    """Check if user is superuser or admin of the specified organization."""
+    if current_user.is_superuser:
+        return True
+    
+    # Check if user is admin of this organization
+    result = await db.execute(
+        select(UserOrganizationRole).where(
+            and_(
+                UserOrganizationRole.user_id == current_user.id,
+                UserOrganizationRole.organization_id == organization_id,
+                UserOrganizationRole.role == ROLE_ADMIN,
+                UserOrganizationRole.revoked_at.is_(None),
+            )
+        )
+    )
+    return result.scalar_one_or_none() is not None
 
 
 def get_user_service(db: AsyncSession = Depends(get_db)) -> UserService:
@@ -343,11 +367,14 @@ async def assign_user_to_organization(
     - organization_id: UUID of organization to assign user to
     - role: Role in organization (admin, member, viewer)
     """
-    # TODO: Check if current user is organization admin or org admin
-    if not current_user.is_superuser:
+    # Check if current user is organization admin or superuser
+    has_permission = await check_organization_admin_permission(
+        current_user, assignment.organization_id, db
+    )
+    if not has_permission:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can assign users to organizations",
+            detail="Only organization administrators can assign users to organizations",
         )
     
     # Verify user exists
@@ -429,11 +456,14 @@ async def remove_user_from_organization(
     
     **Permissions**: Org admin or organization admin
     """
-    # TODO: Check if current user is organization admin or org admin
-    if not current_user.is_superuser:
+    # Check if current user is organization admin or superuser
+    has_permission = await check_organization_admin_permission(
+        current_user, organization_id, db
+    )
+    if not has_permission:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can remove users from organizations",
+            detail="Only organization administrators can remove users from organizations",
         )
     
     # Find the user-organization role

@@ -36,8 +36,9 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
         project_id: UUID,
         organization_id: UUID,
         parent_id: UUID | None = None,
+        tags: list[str] | None = None,
     ) -> list[TestSuite]:
-        """Get all test suites for a project, optionally filtered by parent."""
+        """Get all test suites for a project, optionally filtered by parent or tags."""
         stmt = select(TestSuite).where(
             and_(
                 TestSuite.organization_id == organization_id,
@@ -51,6 +52,10 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
         else:
             # Return root suites if parent_id is None
             stmt = stmt.where(TestSuite.parent_id.is_(None))
+        
+        if tags:
+            # Filter by tags using PostgreSQL array overlap operator
+            stmt = stmt.where(TestSuite.tags.op("&&")(tags))
         
         result = await self.db.execute(stmt)
         return list(result.scalars().all())

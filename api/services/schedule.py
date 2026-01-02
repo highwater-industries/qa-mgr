@@ -97,6 +97,7 @@ class ScheduleService:
         organization_id: UUID,
         project_id: UUID | None = None,
         is_active: bool | None = None,
+        tags: list[str] | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[Schedule]:
@@ -112,13 +113,14 @@ class ScheduleService:
         if is_active is not None:
             conditions.append(Schedule.is_active == is_active)
         
-        stmt = (
-            select(Schedule)
-            .where(and_(*conditions))
-            .order_by(Schedule.created_at.desc())
-            .offset(skip)
-            .limit(limit)
-        )
+        stmt = select(Schedule).where(and_(*conditions))
+        
+        if tags:
+            # Filter by tags using PostgreSQL array overlap operator
+            stmt = stmt.where(Schedule.test_tags.op("&&")(tags))
+        
+        stmt = stmt.order_by(Schedule.created_at.desc()).offset(skip).limit(limit)
+        
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
     

@@ -180,7 +180,7 @@ class TestRunService:
         data: TestRunCompleteRequest,
     ) -> TestRun | None:
         """Mark a test run as completed."""
-        return await self.repository.complete_run(
+        run = await self.repository.complete_run(
             run_id=run_id,
             organization_id=organization_id,
             status=data.status,
@@ -194,6 +194,24 @@ class TestRunService:
             report_url=data.report_url,
             artifacts=data.artifacts,
         )
+        
+        # Send notifications asynchronously
+        if run:
+            from api.services.notification import NotificationService
+            
+            # Determine trigger event
+            if run.status == "failed" or (run.failed_tests and run.failed_tests > 0):
+                event = "run_failed"
+            elif run.status == "completed" and run.failed_tests == 0:
+                event = "run_success"
+            else:
+                event = "run_completed"
+            
+            # Send notifications (within same transaction)
+            notification_service = NotificationService(self.session)
+            await notification_service.send_notifications_for_run(run, event)
+        
+        return run
     
     async def update_aggregates(
         self,

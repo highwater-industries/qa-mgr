@@ -220,16 +220,17 @@ async def simple_archive_project(
     "",
     response_model=List[ProjectListItem],
     summary="List projects (current organization)",
-    description="Get all projects in your current organization.",
+    description="Get all projects in your current organization. Optionally filter by tags.",
 )
 async def simple_list_projects(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
+    tags: List[str] | None = Query(None, description="Filter by tags (returns projects with ANY of these tags)"),
     organization_id: UUID = Depends(get_current_organization),
     service: ProjectService = Depends(get_project_service),
 ) -> List[ProjectListItem]:
     """List projects in current user's organization."""
-    projects = await service.list_projects(organization_id, skip, limit)
+    projects = await service.list_projects(organization_id, skip, limit, tags)
     return [ProjectListItem.model_validate(p) for p in projects]
 
 

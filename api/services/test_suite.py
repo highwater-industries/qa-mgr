@@ -95,6 +95,7 @@ class TestSuiteService:
         project_id: UUID,
         organization_id: UUID,
         parent_id: UUID | None = None,
+        tags: list[str] | None = None,
     ) -> list[TestSuite]:
         """List test suites for a project."""
         # Verify project exists
@@ -109,6 +110,7 @@ class TestSuiteService:
             project_id,
             organization_id,
             parent_id,
+            tags,
         )
     
     async def get_suite_tree(

@@ -54,8 +54,9 @@ async def list_test_cases(
     session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
     active_only: bool = Query(False),
+    tags: list[str] | None = Query(None, description="Filter by tags (returns test cases with ANY of these tags)"),
 ):
-    """List test cases for a suite."""
+    """List test cases for a suite, optionally filtered by active status or tags."""
     service = TestCaseService(session)
     
     try:
@@ -63,6 +64,7 @@ async def list_test_cases(
             suite_id, 
             organization_id, 
             active_only,
+            tags,
         )
         return test_cases
     except ValueError as e:

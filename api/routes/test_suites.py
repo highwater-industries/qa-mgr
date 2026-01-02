@@ -55,12 +55,13 @@ async def list_test_suites(
     session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
     parent_id: UUID | None = Query(None),
+    tags: list[str] | None = Query(None, description="Filter by tags (returns suites with ANY of these tags)"),
 ):
-    """List test suites for a project, optionally filtered by parent suite."""
+    """List test suites for a project, optionally filtered by parent suite or tags."""
     service = TestSuiteService(session)
     
     try:
-        suites = await service.list_suites(project_id, organization_id, parent_id)
+        suites = await service.list_suites(project_id, organization_id, parent_id, tags)
         return suites
     except ValueError as e:
         raise HTTPException(

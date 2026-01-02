@@ -69,16 +69,18 @@ async def list_schedules(
     organization_id: UUID = Depends(get_current_organization),
     project_id: UUID | None = Query(None, description="Filter by project"),
     is_active: bool | None = Query(None, description="Filter by active status"),
+    tags: list[str] | None = Query(None, description="Filter by tags (returns schedules with ANY of these tags)"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
 ):
-    """List all schedules for the organization."""
+    """List all schedules for the organization, optionally filtered by project, status, or tags."""
     service = ScheduleService(db)
     
     schedules = await service.list_schedules(
         organization_id=organization_id,
         project_id=project_id,
         is_active=is_active,
+        tags=tags,
         skip=skip,
         limit=limit,
     )
