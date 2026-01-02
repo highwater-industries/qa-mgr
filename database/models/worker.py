@@ -90,7 +90,10 @@ class TestWorker(TenantBaseModel, table=True):
     )
     
     # Relationships
-    test_runs: list["TestRun"] = Relationship(back_populates="worker")  # type: ignore
+    test_runs: list["TestRun"] = Relationship(
+        back_populates="worker",
+        sa_relationship_kwargs={"foreign_keys": "TestRun.worker_id"},
+    )  # type: ignore
     template: Optional["WorkerTemplate"] = Relationship(back_populates="workers")
     
     __table_args__ = (

@@ -101,6 +101,10 @@ class TestRunResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
+    # Job queue fields
+    celery_task_id: str | None = None
+    queued_at: datetime | None = None
+    
     @computed_field
     @property
     def pass_rate(self) -> float | None:

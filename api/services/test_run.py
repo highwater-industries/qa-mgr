@@ -1,13 +1,14 @@
 """Test run business logic service."""
 
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models.test_models import TestRun
 from api.repositories.test_run import TestRunRepository
 from api.repositories.project import ProjectRepository
 from api.repositories.test_suite import TestSuiteRepository
+from api.repositories.worker import WorkerRepository
 from api.schemas.test_run import (
     TestRunCreateRequest,
     TestRunUpdateRequest,
@@ -15,6 +16,7 @@ from api.schemas.test_run import (
     TestRunCompleteRequest,
     TestRunDetailResponse,
 )
+from tasks import execute_test_run
 
 
 class TestRunService:
@@ -25,6 +27,7 @@ class TestRunService:
         self.repository = TestRunRepository(session)
         self.project_repository = ProjectRepository(session)
         self.suite_repository = TestSuiteRepository(session)
+        self.worker_repository = WorkerRepository(session)
     
     async def create_run(
         self,
@@ -33,7 +36,7 @@ class TestRunService:
         triggered_by: UUID | None = None,
         trigger_type: str = "manual",
     ) -> TestRun:
-        """Create a new test run."""
+        """Create a new test run and queue it for execution."""
         # Verify project exists if provided
         if data.project_id:
             project = await self.project_repository.get_by_id_and_org(
@@ -61,10 +64,37 @@ class TestRunService:
             trigger_type=trigger_type,
             triggered_by=triggered_by,
             status="queued",
+            queued_at=datetime.now(timezone.utc).replace(tzinfo=None),
             **data.model_dump(),
         )
         
-        return await self.repository.create(run)
+        # Create the test run first
+        run = await self.repository.create(run)
+        
+        # Find an available worker
+        available_workers = await self.worker_repository.get_available_workers(
+            organization_id=organization_id,
+        )
+        
+        if not available_workers:
+            # No workers available - stays in queue
+            return run
+        
+        # Pick the first available worker (could be smarter with load balancing)
+        worker = available_workers[0]
+        
+        # Queue the Celery task (pass UUIDs as strings)
+        task = execute_test_run.delay(test_run_id=str(run.id), worker_id=str(worker.id))
+        
+        # Update run with task ID
+        run.celery_task_id = task.id
+        await self.repository.update_by_id_and_org(
+            run_id=run.id,
+            organization_id=organization_id,
+            celery_task_id=task.id,
+        )
+        
+        return run
     
     async def get_run(
         self,

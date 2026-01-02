@@ -115,6 +115,15 @@ class TestRun(TenantBaseModel, table=True):
     worker_id: UUID | None = Field(default=None, foreign_key="test_workers.id", index=True)
     schedule_id: UUID | None = Field(default=None, foreign_key="schedules.id")
     
+    # Job Queue Tracking
+    celery_task_id: str | None = Field(default=None, max_length=255, index=True)
+    queued_at: datetime | None = None
+    assigned_worker_id: UUID | None = Field(default=None, foreign_key="test_workers.id")
+    error_message: str | None = Field(
+        default=None,
+        sa_column=Column(TEXT, nullable=True),
+    )
+    
     # Identification
     name: str = Field(max_length=500)
     run_number: int  # Auto-incrementing per organization
@@ -189,7 +198,10 @@ class TestRun(TenantBaseModel, table=True):
     # Relationships
     project: Optional["Project"] = Relationship()  # type: ignore
     suite: Optional["TestSuite"] = Relationship()  # type: ignore
-    worker: Optional["TestWorker"] = Relationship(back_populates="test_runs")  # type: ignore
+    worker: Optional["TestWorker"] = Relationship(
+        back_populates="test_runs",
+        sa_relationship_kwargs={"foreign_keys": "[TestRun.worker_id]"},
+    )  # type: ignore
     schedule: Optional["Schedule"] = Relationship()  # type: ignore
     results: list["TestResult"] = Relationship(
         back_populates="test_run",
