@@ -10,7 +10,7 @@ import logging
 from api.routes import auth, organizations, users
 from api.routes import projects
 from api.routes import test_suites, test_cases, test_runs, test_catalog
-from api.routes import webhooks
+from api.routes import webhooks, workers
 # Models imported in routes as needed - not globally here
 
 logger = logging.getLogger(__name__)
@@ -62,6 +62,9 @@ app.include_router(test_catalog.router, prefix="/api/v1")
 
 # Webhook routes (public endpoints with secret/token auth)
 app.include_router(webhooks.router, prefix="/api/v1")
+
+# Worker routes
+app.include_router(workers.router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

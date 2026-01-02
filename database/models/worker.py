@@ -33,6 +33,7 @@ class TestWorker(TenantBaseModel, table=True):
     - jenkins: Jenkins agents
     - custom: Custom execution agents
     """
+    __test__ = False  # Prevent pytest from collecting this as a test class
     
     __tablename__ = "test_workers"
     
