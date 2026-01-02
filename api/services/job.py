@@ -93,7 +93,7 @@ class JobService:
                 }
         
         return {
-            "test_run_id": str(test_run_id),
+            "run_id": str(test_run_id),
             "run_status": test_run.status,
             "celery_task_id": test_run.celery_task_id,
             "celery_status": celery_status,
@@ -137,7 +137,7 @@ class JobService:
             return {
                 "success": False,
                 "message": f"Cannot cancel test run with status '{test_run.status}'",
-                "test_run_id": str(test_run_id),
+                "run_id": str(test_run_id),
             }
         
         # Revoke Celery task if exists
@@ -180,7 +180,7 @@ class JobService:
         return {
             "success": True,
             "message": "Test run cancelled",
-            "test_run_id": str(test_run_id),
+            "run_id": str(test_run_id),
             "celery_revoked": celery_revoked,
         }
     
@@ -219,7 +219,7 @@ class JobService:
             return {
                 "success": False,
                 "message": f"Cannot retry test run with status '{test_run.status}'",
-                "test_run_id": str(test_run_id),
+                "run_id": str(test_run_id),
             }
         
         # Find an available worker
@@ -241,7 +241,7 @@ class JobService:
             return {
                 "success": True,
                 "message": "Test run queued for retry (no workers available)",
-                "test_run_id": str(test_run_id),
+                "run_id": str(test_run_id),
                 "status": "queued",
             }
         
@@ -267,7 +267,7 @@ class JobService:
         return {
             "success": True,
             "message": "Test run queued for retry",
-            "test_run_id": str(test_run_id),
+            "run_id": str(test_run_id),
             "celery_task_id": task.id,
             "worker_id": str(worker.id),
             "status": "queued",

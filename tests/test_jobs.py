@@ -70,17 +70,17 @@ class TestJobStatus:
         job_test_run: dict,
     ):
         """Test getting job status."""
-        test_run_id = job_test_run["id"]
+        run_id = job_test_run["id"]
         
         response = await client.get(
-            f"/api/v1/jobs/{test_run_id}/status",
+            f"/api/v1/jobs/{run_id}/status",
             headers=auth_headers,
         )
         
         assert response.status_code == 200
         data = response.json()
         
-        assert data["test_run_id"] == test_run_id
+        assert data["run_id"] == run_id
         assert data["run_status"] == "queued"
         assert "celery_status" in data
         assert "worker" in data
@@ -105,10 +105,10 @@ class TestJobStatus:
         job_test_run: dict,
     ):
         """Test that queued_at timestamp is shown."""
-        test_run_id = job_test_run["id"]
+        run_id = job_test_run["id"]
         
         response = await client.get(
-            f"/api/v1/jobs/{test_run_id}/status",
+            f"/api/v1/jobs/{run_id}/status",
             headers=auth_headers,
         )
         
@@ -133,10 +133,10 @@ class TestJobCancel:
         job_test_run: dict,
     ):
         """Test cancelling a queued job."""
-        test_run_id = job_test_run["id"]
+        run_id = job_test_run["id"]
         
         response = await client.post(
-            f"/api/v1/jobs/{test_run_id}/cancel",
+            f"/api/v1/jobs/{run_id}/cancel",
             headers=auth_headers,
         )
         
@@ -144,12 +144,12 @@ class TestJobCancel:
         data = response.json()
         
         assert data["success"] is True
-        assert data["test_run_id"] == test_run_id
+        assert data["run_id"] == run_id
         assert "message" in data
         
         # Verify run status changed
         status_response = await client.get(
-            f"/api/v1/jobs/{test_run_id}/status",
+            f"/api/v1/jobs/{run_id}/status",
             headers=auth_headers,
         )
         assert status_response.json()["run_status"] == "cancelled"
@@ -174,11 +174,11 @@ class TestJobCancel:
         job_test_run: dict,
     ):
         """Test that completed jobs cannot be cancelled."""
-        test_run_id = job_test_run["id"]
+        run_id = job_test_run["id"]
         
         # Complete the run first
         await client.post(
-            f"/api/v1/test-runs/{test_run_id}/complete",
+            f"/api/v1/test-runs/{run_id}/complete",
             json={
                 "status": "completed",
                 "total_tests": 5,
@@ -190,7 +190,7 @@ class TestJobCancel:
         
         # Try to cancel
         response = await client.post(
-            f"/api/v1/jobs/{test_run_id}/cancel",
+            f"/api/v1/jobs/{run_id}/cancel",
             headers=auth_headers,
         )
         
@@ -214,11 +214,11 @@ class TestJobRetry:
         job_test_run: dict,
     ):
         """Test retrying a failed job when no workers available."""
-        test_run_id = job_test_run["id"]
+        run_id = job_test_run["id"]
         
         # Fail the run first
         await client.post(
-            f"/api/v1/test-runs/{test_run_id}/complete",
+            f"/api/v1/test-runs/{run_id}/complete",
             json={
                 "status": "failed",
                 "total_tests": 5,
@@ -230,7 +230,7 @@ class TestJobRetry:
         
         # Try to retry
         response = await client.post(
-            f"/api/v1/jobs/{test_run_id}/retry",
+            f"/api/v1/jobs/{run_id}/retry",
             headers=auth_headers,
         )
         
@@ -238,7 +238,7 @@ class TestJobRetry:
         data = response.json()
         
         assert data["success"] is True
-        assert data["test_run_id"] == test_run_id
+        assert data["run_id"] == run_id
         assert data["status"] == "queued"
     
     async def test_retry_cancelled_job(
@@ -248,17 +248,17 @@ class TestJobRetry:
         job_test_run: dict,
     ):
         """Test retrying a cancelled job."""
-        test_run_id = job_test_run["id"]
+        run_id = job_test_run["id"]
         
         # Cancel the run first
         await client.post(
-            f"/api/v1/jobs/{test_run_id}/cancel",
+            f"/api/v1/jobs/{run_id}/cancel",
             headers=auth_headers,
         )
         
         # Retry it
         response = await client.post(
-            f"/api/v1/jobs/{test_run_id}/retry",
+            f"/api/v1/jobs/{run_id}/retry",
             headers=auth_headers,
         )
         
@@ -275,17 +275,17 @@ class TestJobRetry:
         job_test_run: dict,
     ):
         """Test that running jobs cannot be retried."""
-        test_run_id = job_test_run["id"]
+        run_id = job_test_run["id"]
         
         # Start the run
         await client.post(
-            f"/api/v1/test-runs/{test_run_id}/start",
+            f"/api/v1/test-runs/{run_id}/start",
             headers=auth_headers,
         )
         
         # Try to retry
         response = await client.post(
-            f"/api/v1/jobs/{test_run_id}/retry",
+            f"/api/v1/jobs/{run_id}/retry",
             headers=auth_headers,
         )
         

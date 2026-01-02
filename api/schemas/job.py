@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class JobStatusResponse(BaseModel):
     """Response schema for job status."""
     
-    test_run_id: str
+    run_id: str
     run_status: str = Field(description="Test run status (queued, running, completed, failed, cancelled)")
     celery_task_id: str | None = Field(description="Celery task ID")
     celery_status: str | None = Field(description="Celery task status (PENDING, STARTED, SUCCESS, FAILURE, REVOKED)")
@@ -25,7 +25,7 @@ class JobCancelResponse(BaseModel):
     
     success: bool
     message: str
-    test_run_id: str
+    run_id: str
     celery_revoked: bool = Field(default=False, description="Whether Celery task was revoked")
 
 
@@ -34,7 +34,7 @@ class JobRetryResponse(BaseModel):
     
     success: bool
     message: str
-    test_run_id: str
+    run_id: str
     celery_task_id: str | None = None
     worker_id: str | None = None
     status: str | None = None

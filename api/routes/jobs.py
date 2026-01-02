@@ -20,20 +20,20 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
 @router.get(
-    "/{test_run_id}/status",
+    "/{run_id}/status",
     response_model=JobStatusResponse,
     summary="Get job status",
     description="Get the status of a test run's job including Celery task status.",
 )
 async def get_job_status(
-    test_run_id: UUID,
+    run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Get the status of a job for a test run."""
     service = JobService(session)
     
-    result = await service.get_job_status(test_run_id, organization_id)
+    result = await service.get_job_status(run_id, organization_id)
     
     if not result:
         raise HTTPException(
@@ -45,20 +45,20 @@ async def get_job_status(
 
 
 @router.post(
-    "/{test_run_id}/cancel",
+    "/{run_id}/cancel",
     response_model=JobCancelResponse,
     summary="Cancel job",
     description="Cancel a running or queued test run job.",
 )
 async def cancel_job(
-    test_run_id: UUID,
+    run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Cancel a test run job."""
     service = JobService(session)
     
-    result = await service.cancel_job(test_run_id, organization_id)
+    result = await service.cancel_job(run_id, organization_id)
     
     if not result:
         raise HTTPException(
@@ -70,20 +70,20 @@ async def cancel_job(
 
 
 @router.post(
-    "/{test_run_id}/retry",
+    "/{run_id}/retry",
     response_model=JobRetryResponse,
     summary="Retry job",
     description="Retry a failed or cancelled test run job.",
 )
 async def retry_job(
-    test_run_id: UUID,
+    run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
 ):
     """Retry a failed test run job."""
     service = JobService(session)
     
-    result = await service.retry_job(test_run_id, organization_id)
+    result = await service.retry_job(run_id, organization_id)
     
     if not result:
         raise HTTPException(
