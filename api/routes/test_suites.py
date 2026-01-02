@@ -51,9 +51,9 @@ async def create_test_suite(
 )
 async def list_test_suites(
     project_id: UUID,
-    parent_id: UUID | None = Query(None),
     session: Annotated[AsyncSession, Depends(get_session)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
+    parent_id: UUID | None = Query(None),
 ):
     """List test suites for a project, optionally filtered by parent suite."""
     service = TestSuiteService(session)

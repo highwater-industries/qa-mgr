@@ -50,9 +50,9 @@ async def create_test_case(
 )
 async def list_test_cases(
     suite_id: UUID,
-    active_only: bool = Query(False),
     session: Annotated[AsyncSession, Depends(get_session)],
     organization_id: Annotated[UUID, Depends(get_current_organization)],
+    active_only: bool = Query(False),
 ):
     """List test cases for a suite."""
     service = TestCaseService(session)
