@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="qai",
+    description="AI-Powered Quality Assurance Platform",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
