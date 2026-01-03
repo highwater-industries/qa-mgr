@@ -1,4 +1,4 @@
-"""Organization management endpoints."""
+"""Workspace management endpoints."""
 from typing import List
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -20,7 +20,7 @@ from api.schemas.workspace import (
 router = APIRouter()
 
 def get_workspace_service(db: AsyncSession = Depends(get_db)) -> WorkspaceService:
-    """Dependency for organization service."""
+    """Dependency for workspace service."""
     repo = WorkspaceRepository(db)
     return WorkspaceService(repo)
 
@@ -28,8 +28,8 @@ def get_workspace_service(db: AsyncSession = Depends(get_db)) -> WorkspaceServic
     "",
     response_model=WorkspaceResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create new organization",
-    description="Create new application organization. Org admins only for MVP.",
+    summary="Create new workspace",
+    description="Create new application workspace. Admins only.",
 )
 async def create_organization(
     organization_data: WorkspaceCreateRequest,
@@ -37,17 +37,17 @@ async def create_organization(
     service: WorkspaceService = Depends(get_workspace_service),
 ) -> WorkspaceResponse:
     """
-    Create new organization.
+    Create new workspace.
     
-    **Permissions**: Organization admin only
+    **Permissions**: Admin only
     
-    **Request Body**:
-    - name: Organization display name
+    **Parameters**:
+    - name: Workspace display name
     - slug: URL-safe identifier (lowercase, hyphens)
     - description: Optional description
     - config: Optional configuration dict
     
-    **Response**: Created organization object
+    **Response**: Created workspace object
     """
     organization = await service.create_organization(
         organization_data=organization_data,
@@ -59,37 +59,37 @@ async def create_organization(
 @router.get(
     "",
     response_model=List[WorkspaceResponse],
-    summary="List user's organizations",
-    description="Get all organizations current user has access to.",
+    summary="List user's workspaces",
+    description="Get all workspaces current user has access to.",
 )
 async def list_organizations(
     current_user: User = Depends(get_current_user),
     service: WorkspaceService = Depends(get_workspace_service),
 ) -> List[WorkspaceResponse]:
-    """List all organizations user has access to."""
+    """List all workspaces user has access to."""
     organizations = await service.list_user_organizations(current_user.id)
     return [WorkspaceResponse.model_validate(t) for t in organizations]
 
 @router.get(
     "/{workspace_id}",
     response_model=WorkspaceDetailResponse,
-    summary="Get organization details",
-    description="Get detailed information about a specific organization.",
+    summary="Get workspace details",
+    description="Get detailed information about a specific workspace.",
 )
 async def get_organization(
     workspace_id: UUID,
     current_user: User = Depends(get_current_user),
     service: WorkspaceService = Depends(get_workspace_service),
 ) -> WorkspaceDetailResponse:
-    """Get organization by ID."""
+    """Get workspace by ID."""
     organization = await service.get_organization(workspace_id)
     return WorkspaceDetailResponse.model_validate(organization)
 
 @router.put(
     "/{workspace_id}",
     response_model=WorkspaceResponse,
-    summary="Update organization",
-    description="Update organization information. Admin only.",
+    summary="Update workspace",
+    description="Update workspace information. Admin only.",
 )
 async def update_organization(
     workspace_id: UUID,
@@ -97,11 +97,11 @@ async def update_organization(
     current_user: User = Depends(get_current_user),
     service: WorkspaceService = Depends(get_workspace_service),
 ) -> WorkspaceResponse:
-    """Update organization."""
+    """Update workspace."""
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can update organizations",
+            detail="Only administrators can update workspaces",
         )
     
     organization = await service.update_organization(workspace_id, organization_data)
@@ -110,19 +110,19 @@ async def update_organization(
 @router.delete(
     "/{workspace_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete organization",
-    description="Soft delete organization. Admin only.",
+    summary="Delete workspace",
+    description="Soft delete workspace. Admin only.",
 )
 async def delete_organization(
     workspace_id: UUID,
     current_user: User = Depends(get_current_user),
     service: WorkspaceService = Depends(get_workspace_service),
 ) -> None:
-    """Delete organization (soft delete)."""
+    """Delete workspace (soft delete)."""
     if not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can delete organizations",
+            detail="Only administrators can delete workspaces",
         )
     
     await service.delete_organization(workspace_id)
@@ -130,8 +130,8 @@ async def delete_organization(
 @router.post(
     "/{workspace_id}/users",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Assign user to organization",
-    description="Add user to organization with specified role. Admin only.",
+    summary="Assign user to workspace",
+    description="Add user to workspace with specified role. Admin only.",
 )
 async def assign_user_to_organization(
     workspace_id: UUID,
@@ -140,9 +140,9 @@ async def assign_user_to_organization(
     service: WorkspaceService = Depends(get_workspace_service),
 ) -> None:
     """
-    Assign user to organization.
+    Assign user to workspace.
     
-    **Permissions**: Organization admin or org admin
+    **Permissions**: Workspace admin
     
     **Request Body**:
     - user_id: User to assign

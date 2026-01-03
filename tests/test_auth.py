@@ -39,7 +39,7 @@ async def test_get_current_user(client: AsyncClient, auth_headers):
 @pytest.mark.asyncio
 async def test_get_my_organizations(client: AsyncClient, auth_headers, test_workspace):
     """Test listing user's organizations."""
-    response = await client.get("/api/v1/auth/my-organizations", headers=auth_headers)
+    response = await client.get("/api/v1/auth/my-workspaces", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert "organizations" in data

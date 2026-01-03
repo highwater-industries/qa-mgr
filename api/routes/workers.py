@@ -106,7 +106,7 @@ async def list_workers(
     limit: int = Query(100, ge=1, le=500),
 ):
     """
-    List all workers in the organization.
+    List all workers in the workspace.
     
     Supports filtering by status, type, availability, and tags.
     """
@@ -134,7 +134,7 @@ async def get_worker_health_summary(
     workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
-    Get health summary of all workers in the organization.
+    Get health summary of all workers in the workspace.
     
     Returns statistics on worker health including:
     - Total, online, offline counts

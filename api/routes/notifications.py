@@ -32,7 +32,7 @@ async def create_notification_config(
     Create a new notification configuration.
     
     Notification configs define when and how to send alerts:
-    - **Scope**: Organization-wide, project-specific, or suite-specific
+    - **Scope**: Workspace-wide, project-specific, or suite-specific
     - **Types**: webhook, slack, teams, email, discord
     - **Triggers**: run_completed, run_failed, run_success, always
     - **Filters**: By tags and branches

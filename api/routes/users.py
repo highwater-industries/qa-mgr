@@ -34,11 +34,11 @@ async def check_organization_admin_permission(
     workspace_id: UUID,
     db: AsyncSession,
 ) -> bool:
-    """Check if user is superuser or admin of the specified organization."""
+    """Check if user is superuser or admin of the specified workspace."""
     if current_user.is_superuser:
         return True
     
-    # Check if user is admin of this organization
+    # Check if user is admin of this workspace
     result = await db.execute(
         select(UserWorkspaceRole).where(
             and_(
@@ -275,14 +275,14 @@ async def reactivate_user(
 
 
 # =============================================================================
-# User-Organization Management Endpoints
+# User-Workspace Management Endpoints
 # =============================================================================
 
 @router.get(
-    "/{user_id}/organizations",
+    "/{user_id}/workspaces",
     response_model=UserOrganizationsListResponse,
-    summary="List user's organizations",
-    description="Get all organizations a user has access to. Admin or self only.",
+    summary="List user's workspaces",
+    description="Get all workspaces a user has access to. Admin or self only.",
 )
 async def get_user_organizations(
     user_id: UUID,
@@ -298,7 +298,7 @@ async def get_user_organizations(
     if user_id != current_user.id and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only view your own organization assignments",
+            detail="You can only view your own workspace assignments",
         )
     
     # Get user
@@ -310,7 +310,7 @@ async def get_user_organizations(
             detail="User not found",
         )
     
-    # Query user's organization assignments
+    # Query user's workspace assignments
     result = await db.execute(
         select(UserWorkspaceRole, Workspace)
         .join(Workspace, UserWorkspaceRole.workspace_id == Workspace.id)
@@ -347,10 +347,10 @@ async def get_user_organizations(
 
 
 @router.post(
-    "/{user_id}/organizations",
+    "/{user_id}/workspaces",
     status_code=status.HTTP_201_CREATED,
-    summary="Assign user to organization",
-    description="Assign user to an organization with specified role. Admin only.",
+    summary="Assign user to workspace",
+    description="Assign user to a workspace with specified role. Admin only.",
 )
 async def assign_user_to_organization(
     user_id: UUID,
@@ -359,22 +359,22 @@ async def assign_user_to_organization(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """
-    Assign user to an organization with a role.
+    Assign user to a workspace with a role.
     
-    **Permissions**: Org admin or organization admin
+    **Permissions**: Admin or workspace admin
     
     **Request Body**:
-    - workspace_id: UUID of organization to assign user to
-    - role: Role in organization (admin, member, viewer)
+    - workspace_id: UUID of workspace to assign user to
+    - role: Role in workspace (admin, member, viewer)
     """
-    # Check if current user is organization admin or superuser
+    # Check if current user is workspace admin or superuser
     has_permission = await check_organization_admin_permission(
         current_user, assignment.workspace_id, db
     )
     if not has_permission:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only organization administrators can assign users to organizations",
+            detail="Only workspace administrators can assign users to workspaces",
         )
     
     # Verify user exists
@@ -386,7 +386,7 @@ async def assign_user_to_organization(
             detail="User not found",
         )
     
-    # Verify organization exists
+    # Verify workspace exists
     organization_result = await db.execute(
         select(Workspace).where(
             and_(
@@ -399,10 +399,10 @@ async def assign_user_to_organization(
     if not organization:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Organization not found",
+            detail="Workspace not found",
         )
     
-    # Check if user already has access to this organization
+    # Check if user already has access to this workspace
     existing_result = await db.execute(
         select(UserWorkspaceRole).where(
             and_(
@@ -432,7 +432,7 @@ async def assign_user_to_organization(
     await db.commit()
     
     return {
-        "message": "User assigned to organization successfully",
+        "message": "User assigned to workspace successfully",
         "user_id": str(user_id),
         "workspace_id": str(assignment.workspace_id),
         "role": assignment.role,
@@ -442,8 +442,8 @@ async def assign_user_to_organization(
 @router.delete(
     "/{user_id}/workspaces/{workspace_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Remove user from organization",
-    description="Remove user's access to an organization. Admin only.",
+    summary="Remove user from workspace",
+    description="Remove user's access to a workspace. Admin only.",
 )
 async def remove_user_from_organization(
     user_id: UUID,
@@ -452,21 +452,21 @@ async def remove_user_from_organization(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """
-    Remove user's access to an organization (revoke).
+    Remove user's access to a workspace (revoke).
     
-    **Permissions**: Org admin or organization admin
+    **Permissions**: Admin or workspace admin
     """
-    # Check if current user is organization admin or superuser
+    # Check if current user is workspace admin or superuser
     has_permission = await check_organization_admin_permission(
         current_user, workspace_id, db
     )
     if not has_permission:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only organization administrators can remove users from organizations",
+            detail="Only workspace administrators can remove users from workspaces",
         )
     
-    # Find the user-organization role
+    # Find the user-workspace role
     result = await db.execute(
         select(UserWorkspaceRole).where(
             and_(
@@ -481,14 +481,14 @@ async def remove_user_from_organization(
     if not role:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User is not assigned to this organization",
+            detail="User is not assigned to this workspace",
         )
     
     # Revoke access
     role.revoked_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.add(role)
     
-    # Clear current_workspace_id if this was the user's current organization
+    # Clear current_workspace_id if this was the user's current workspace
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id(user_id)
     if user and user.current_workspace_id == workspace_id:

@@ -73,7 +73,7 @@ async def create_test_run(
     "",
     response_model=list[TestRunListItem],
     summary="List test runs",
-    description="List test runs for the current organization with optional filters.",
+    description="List test runs for the current workspace with optional filters.",
 )
 async def list_test_runs(
     session: Annotated[AsyncSession, Depends(get_db)],

@@ -76,7 +76,7 @@ async def test_assign_user_to_organization(client: AsyncClient, admin_headers, t
     await db_session.refresh(org)
     
     response = await client.post(
-        f"/api/v1/users/{test_user.id}/organizations",
+        f"/api/v1/users/{test_user.id}/workspaces",
         json={
             "workspace_id": str(org.id),
             "role": "member",
@@ -92,7 +92,7 @@ async def test_assign_user_to_organization(client: AsyncClient, admin_headers, t
 async def test_list_user_organizations(client: AsyncClient, admin_headers, test_user, test_workspace):
     """Test listing user's organizations."""
     response = await client.get(
-        f"/api/v1/users/{test_user.id}/organizations",
+        f"/api/v1/users/{test_user.id}/workspaces",
         headers=admin_headers,
     )
     assert response.status_code == 200

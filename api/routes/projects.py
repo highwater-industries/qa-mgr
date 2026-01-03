@@ -28,15 +28,15 @@ def get_project_service(db: AsyncSession = Depends(get_db)) -> ProjectService:
 
 
 # =============================================================================
-# Simplified Routes - Use current user's organization
+# Simplified Routes - Use current user's workspace
 # =============================================================================
 
 @simple_router.post(
     "",
     response_model=ProjectResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create new project (current Workspace)",
-    description="Create new project in your current organization.",
+    summary="Create new project",
+    description="Create new project in your current workspace.",
 )
 async def simple_create_project(
     project_data: ProjectCreateRequest,
@@ -45,8 +45,8 @@ async def simple_create_project(
     service: ProjectService = Depends(get_project_service),
     db: AsyncSession = Depends(get_db),
 ) -> ProjectResponse:
-    """Create project in current user's organization."""
-    # Check if user is superuser or has admin role in organization
+    """Create project in current user's workspace."""
+    # Check if user is superuser or has admin role in workspace
     from database.models.workspace import UserWorkspaceRole
     from sqlalchemy import select, and_
     
@@ -77,8 +77,8 @@ async def simple_create_project(
 @simple_router.put(
     "/{project_id}",
     response_model=ProjectResponse,
-    summary="Update project (current Workspace)",
-    description="Update project in your current organization.",
+    summary="Update project",
+    description="Update project in your current workspace.",
 )
 async def simple_update_project(
     project_id: UUID,
@@ -88,7 +88,7 @@ async def simple_update_project(
     service: ProjectService = Depends(get_project_service),
     db: AsyncSession = Depends(get_db),
 ) -> ProjectResponse:
-    """Update project in current user's organization."""
+    """Update project in current user's workspace."""
     from database.models.workspace import UserWorkspaceRole
     from sqlalchemy import select, and_
     
@@ -124,8 +124,8 @@ async def simple_update_project(
 @simple_router.delete(
     "/{project_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete project (current Workspace)",
-    description="Delete project in your current organization.",
+    summary="Delete project",
+    description="Delete project in your current workspace.",
 )
 async def simple_delete_project(
     project_id: UUID,
@@ -134,7 +134,7 @@ async def simple_delete_project(
     service: ProjectService = Depends(get_project_service),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    """Delete project in current user's organization."""
+    """Delete project in current user's workspace."""
     from database.models.workspace import UserWorkspaceRole
     from sqlalchemy import select, and_
     
@@ -171,8 +171,8 @@ async def simple_delete_project(
 @simple_router.post(
     "/{project_id}/archive",
     response_model=ProjectResponse,
-    summary="Archive project (current Workspace)",
-    description="Archive project in your current organization.",
+    summary="Archive project",
+    description="Archive project in your current workspace.",
 )
 async def simple_archive_project(
     project_id: UUID,
@@ -181,7 +181,7 @@ async def simple_archive_project(
     service: ProjectService = Depends(get_project_service),
     db: AsyncSession = Depends(get_db),
 ) -> ProjectResponse:
-    """Archive project in current user's organization."""
+    """Archive project in current user's workspace."""
     from database.models.workspace import UserWorkspaceRole
     from sqlalchemy import select, and_
     
@@ -219,8 +219,8 @@ async def simple_archive_project(
 @simple_router.get(
     "",
     response_model=List[ProjectListItem],
-    summary="List projects (current Workspace)",
-    description="Get all projects in your current organization. Optionally filter by tags.",
+    summary="List projects",
+    description="Get all projects in your current workspace. Optionally filter by tags.",
 )
 async def simple_list_projects(
     skip: int = Query(0, ge=0),
@@ -229,7 +229,7 @@ async def simple_list_projects(
     workspace_id: UUID = Depends(get_current_workspace),
     service: ProjectService = Depends(get_project_service),
 ) -> List[ProjectListItem]:
-    """List projects in current user's organization."""
+    """List projects in current user's workspace."""
     projects = await service.list_projects(workspace_id, skip, limit, tags)
     return [ProjectListItem.model_validate(p) for p in projects]
 
@@ -237,7 +237,7 @@ async def simple_list_projects(
 @simple_router.get(
     "/{project_id}",
     response_model=ProjectDetailResponse,
-    summary="Get project details (current Workspace)",
+    summary="Get project details",
     description="Get detailed information about a project.",
 )
 async def simple_get_project(

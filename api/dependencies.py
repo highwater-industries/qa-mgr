@@ -107,13 +107,13 @@ async def get_current_workspace(
         organization_role = result.scalar_one_or_none()
         
         if organization_role:
-            # Current organization is still valid
+            # Current workspace is still valid
             return current_user.current_workspace_id
         
-        # Current organization is no longer valid, clear it and fall through
-        # (Will be cleared on next switch-organization call or updated by background job)
+        # Current workspace is no longer valid, clear it and fall through
+        # (Will be cleared on next switch-workspace call or updated by background job)
     
-    # Fall back to most recently granted organization
+    # Fall back to most recently granted workspace
     result = await db.execute(
         select(UserWorkspaceRole)
         .where(
@@ -127,15 +127,15 @@ async def get_current_workspace(
         .limit(1)
     )
     
-    organization_role = result.scalar_one_or_none()
+    workspace_role = result.scalar_one_or_none()
     
-    if not organization_role:
+    if not workspace_role:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User not assigned to any organization. Please contact your administrator.",
+            detail="User not assigned to any workspace. Please contact your administrator.",
         )
     
-    return organization_role.workspace_id
+    return workspace_role.workspace_id
 
 
 async def verify_organization_access(
@@ -144,21 +144,21 @@ async def verify_organization_access(
     db: AsyncSession = Depends(get_db),
 ) -> UUID:
     """
-    Verify user has access to specified organization.
+    Verify user has access to specified workspace.
     
     Allows access if:
-    - User is superuser (cross-organization access)
-    - User has active role in the organization
+    - User is superuser (cross-workspace access)
+    - User has active role in the workspace
     
     Returns workspace_id if access granted, raises 403 otherwise.
     """
     from database.models.workspace import UserWorkspaceRole
     
-    # Superusers have access to all organizations
+    # Superusers have access to all workspaces
     if current_user.is_superuser:
         return workspace_id
     
-    # Check if user has role in this organization
+    # Check if user has role in this workspace
     result = await db.execute(
         select(UserWorkspaceRole)
         .where(
@@ -172,12 +172,12 @@ async def verify_organization_access(
         .limit(1)
     )
     
-    organization_role = result.scalar_one_or_none()
+    workspace_role = result.scalar_one_or_none()
     
-    if not organization_role:
+    if not workspace_role:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this organization",
+            detail="Access denied to this workspace",
         )
     
     return workspace_id

@@ -99,23 +99,23 @@ async def get_current_user_info(
 
 
 @router.get(
-    "/my-organizations",
+    "/my-workspaces",
     response_model=UserOrganizationsListResponse,
-    summary="List my organizations",
-    description="Get all organizations the current user has access to.",
+    summary="List my workspaces",
+    description="Get all workspaces the current user has access to.",
 )
 async def get_my_organizations(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UserOrganizationsListResponse:
     """
-    List all organizations the current user has access to.
+    List all workspaces the current user has access to.
     
     **Returns**:
-    - List of organizations with role information
-    - Current organization ID if set
+    - List of workspaces with role information
+    - Current workspace ID if set
     """
-    # Query user's organization assignments with organization details
+    # Query user's workspace assignments with workspace details
     result = await db.execute(
         select(UserWorkspaceRole, Workspace)
         .join(Workspace, UserWorkspaceRole.workspace_id == Workspace.id)
@@ -163,20 +163,20 @@ async def switch_organization(
     db: AsyncSession = Depends(get_db),
 ) -> SwitchWorkspaceResponse:
     """
-    Switch to a different organization.
+    Switch to a different workspace.
     
     **Request Body**:
-    - workspace_id: UUID of the organization to switch to
+    - workspace_id: UUID of the workspace to switch to
     
-    **Response**:
-    - Updates user's current_workspace_id
-    - Returns organization information
+    **Returns**:
+    - Updated user information
+    - Returns workspace information
     
     **Errors**:
-    - 403: User does not have access to the specified organization
-    - 404: Organization not found
+    - 403: User does not have access to the specified workspace
+    - 404: Workspace not found
     """
-    # Verify user has access to this organization
+    # Verify user has access to this workspace
     result = await db.execute(
         select(UserWorkspaceRole, Workspace)
         .join(Workspace, UserWorkspaceRole.workspace_id == Workspace.id)
@@ -196,12 +196,12 @@ async def switch_organization(
     if not organization_data:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied to this organization",
+            detail="Access denied to this workspace",
         )
     
     role, organization = organization_data
     
-    # Update user's current organization
+    # Update user's current workspace
     current_user.current_workspace_id = request.workspace_id
     db.add(current_user)
     await db.commit()
