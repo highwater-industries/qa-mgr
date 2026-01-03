@@ -164,7 +164,7 @@ async def admin_user(db_session: AsyncSession, test_workspace: Workspace) -> Use
 async def auth_headers(client: AsyncClient, test_user: User) -> dict[str, str]:
     """Get authentication headers for test user."""
     response = await client.post(
-        "/api/v1/auth/login",
+        "/qai/api/v1/auth/login",
         json={"username": "testuser", "password": "testpass123"},
     )
     assert response.status_code == 200
@@ -176,7 +176,7 @@ async def auth_headers(client: AsyncClient, test_user: User) -> dict[str, str]:
 async def admin_headers(client: AsyncClient, admin_user: User) -> dict[str, str]:
     """Get authentication headers for admin user."""
     response = await client.post(
-        "/api/v1/auth/login",
+        "/qai/api/v1/auth/login",
         json={"username": "admin", "password": "admin123"},
     )
     assert response.status_code == 200

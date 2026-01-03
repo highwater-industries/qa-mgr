@@ -19,14 +19,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown events."""
     # Startup
-    logger.info("QA Manager API starting...")
+    logger.info("qai starting...")
     yield
     # Shutdown
-    logger.info("QA Manager API shutting down...")
+    logger.info("qai shutting down...")
 
 # Create FastAPI app
 app = FastAPI(
-    title="QA Manager API",
+    title="qai",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -43,42 +43,42 @@ app.add_middleware(
 )
 
 # Routes - Start with auth and organizations, add more as implemented
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(workspaces.router, prefix="/api/v1/workspaces", tags=["workspaces"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(auth.router, prefix="/qai/api/v1/auth", tags=["auth"])
+app.include_router(workspaces.router, prefix="/qai/api/v1/workspaces", tags=["workspaces"])
+app.include_router(users.router, prefix="/qai/api/v1/users", tags=["users"])
 
 # Project routes - uses current user's organization context
 app.include_router(
     projects.simple_router,
-    prefix="/api/v1/projects",
+    prefix="/qai/api/v1/projects",
     tags=["projects"],
 )
 
 # Test suite and test case routes
-app.include_router(test_suites.router, prefix="/api/v1")
-app.include_router(test_cases.router, prefix="/api/v1")
-app.include_router(test_runs.router, prefix="/api/v1")
-app.include_router(test_catalog.router, prefix="/api/v1")
+app.include_router(test_suites.router, prefix="/qai/api/v1")
+app.include_router(test_cases.router, prefix="/qai/api/v1")
+app.include_router(test_runs.router, prefix="/qai/api/v1")
+app.include_router(test_catalog.router, prefix="/qai/api/v1")
 
 # Webhook routes (public endpoints with secret/token auth)
-app.include_router(webhooks.router, prefix="/api/v1")
+app.include_router(webhooks.router, prefix="/qai/api/v1")
 
 # Worker routes
-app.include_router(workers.router, prefix="/api/v1")
+app.include_router(workers.router, prefix="/qai/api/v1")
 
 # Job management routes
-app.include_router(jobs.router, prefix="/api/v1")
+app.include_router(jobs.router, prefix="/qai/api/v1")
 
 # Schedule routes
-app.include_router(schedules.router, prefix="/api/v1")
+app.include_router(schedules.router, prefix="/qai/api/v1")
 
 # Notification routes
-app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/qai/api/v1")
 
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {"message": "QA Manager API", "version": "1.0.0"}
+    return {"message": "qai", "version": "1.0.0"}
 
 
 

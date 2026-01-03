@@ -10,7 +10,7 @@ from database.models.test_models import TestRun
 async def test_create_test_run(client: AsyncClient, auth_headers, test_project):
     """Test creating a test run."""
     response = await client.post(
-        "/api/v1/test-runs",
+        "/qai/api/v1/test-runs",
         json={
             "name": "Nightly Regression",
             "project_id": str(test_project.id),
@@ -33,7 +33,7 @@ async def test_create_test_run(client: AsyncClient, auth_headers, test_project):
 async def test_create_test_run_minimal(client: AsyncClient, auth_headers):
     """Test creating a test run with minimal data."""
     response = await client.post(
-        "/api/v1/test-runs",
+        "/qai/api/v1/test-runs",
         json={
             "name": "Quick Test",
         },
@@ -50,7 +50,7 @@ async def test_create_test_run_minimal(client: AsyncClient, auth_headers):
 async def test_create_test_run_with_suite(client: AsyncClient, auth_headers, test_project, test_suite):
     """Test creating a test run linked to a suite."""
     response = await client.post(
-        "/api/v1/test-runs",
+        "/qai/api/v1/test-runs",
         json={
             "name": "Suite Test Run",
             "project_id": str(test_project.id),
@@ -81,7 +81,7 @@ async def test_list_test_runs(client: AsyncClient, auth_headers, db_session, tes
     await db_session.commit()
     
     response = await client.get(
-        "/api/v1/test-runs",
+        "/qai/api/v1/test-runs",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -108,7 +108,7 @@ async def test_list_test_runs_with_filters(client: AsyncClient, auth_headers, db
     
     # Filter by status
     response = await client.get(
-        "/api/v1/test-runs?status=completed",
+        "/qai/api/v1/test-runs?status=completed",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -117,7 +117,7 @@ async def test_list_test_runs_with_filters(client: AsyncClient, auth_headers, db
     
     # Filter by project
     response = await client.get(
-        f"/api/v1/test-runs?project_id={test_project.id}",
+        f"/qai/api/v1/test-runs?project_id={test_project.id}",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -143,7 +143,7 @@ async def test_get_test_run(client: AsyncClient, auth_headers, db_session, test_
     await db_session.refresh(run)
     
     response = await client.get(
-        f"/api/v1/test-runs/{run.id}",
+        f"/qai/api/v1/test-runs/{run.id}",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -159,7 +159,7 @@ async def test_get_test_run(client: AsyncClient, auth_headers, db_session, test_
 async def test_get_test_run_not_found(client: AsyncClient, auth_headers):
     """Test getting a non-existent test run."""
     response = await client.get(
-        f"/api/v1/test-runs/{uuid4()}",
+        f"/qai/api/v1/test-runs/{uuid4()}",
         headers=auth_headers,
     )
     assert response.status_code == 404
@@ -180,7 +180,7 @@ async def test_update_test_run(client: AsyncClient, auth_headers, db_session, te
     await db_session.refresh(run)
     
     response = await client.patch(
-        f"/api/v1/test-runs/{run.id}",
+        f"/qai/api/v1/test-runs/{run.id}",
         json={
             "name": "Updated Run Name",
             "branch": "develop",
@@ -209,14 +209,14 @@ async def test_delete_test_run(client: AsyncClient, auth_headers, db_session, te
     await db_session.refresh(run)
     
     response = await client.delete(
-        f"/api/v1/test-runs/{run.id}",
+        f"/qai/api/v1/test-runs/{run.id}",
         headers=auth_headers,
     )
     assert response.status_code == 204
     
     # Verify it's gone
     response = await client.get(
-        f"/api/v1/test-runs/{run.id}",
+        f"/qai/api/v1/test-runs/{run.id}",
         headers=auth_headers,
     )
     assert response.status_code == 404
@@ -237,7 +237,7 @@ async def test_start_test_run(client: AsyncClient, auth_headers, db_session, tes
     await db_session.refresh(run)
     
     response = await client.post(
-        f"/api/v1/test-runs/{run.id}/start",
+        f"/qai/api/v1/test-runs/{run.id}/start",
         json={"total_tests": 100},
         headers=auth_headers,
     )
@@ -266,7 +266,7 @@ async def test_complete_test_run(client: AsyncClient, auth_headers, db_session, 
     await db_session.refresh(run)
     
     response = await client.post(
-        f"/api/v1/test-runs/{run.id}/complete",
+        f"/qai/api/v1/test-runs/{run.id}/complete",
         json={
             "status": "completed",
             "total_tests": 100,
@@ -306,7 +306,7 @@ async def test_create_test_result(client: AsyncClient, auth_headers, db_session,
     await db_session.refresh(run)
     
     response = await client.post(
-        f"/api/v1/test-runs/{run.id}/results",
+        f"/qai/api/v1/test-runs/{run.id}/results",
         json={
             "test_id": "tests.unit.test_api::test_login",
             "test_name": "test_login",
@@ -339,7 +339,7 @@ async def test_create_test_result_failed(client: AsyncClient, auth_headers, db_s
     await db_session.refresh(run)
     
     response = await client.post(
-        f"/api/v1/test-runs/{run.id}/results",
+        f"/qai/api/v1/test-runs/{run.id}/results",
         json={
             "test_id": "tests.unit.test_api::test_create_user",
             "test_name": "test_create_user",
@@ -374,7 +374,7 @@ async def test_batch_create_results(client: AsyncClient, auth_headers, db_sessio
     await db_session.refresh(run)
     
     response = await client.post(
-        f"/api/v1/test-runs/{run.id}/results/batch",
+        f"/qai/api/v1/test-runs/{run.id}/results/batch",
         json={
             "results": [
                 {
@@ -442,7 +442,7 @@ async def test_list_results(client: AsyncClient, auth_headers, db_session, test_
     await db_session.commit()
     
     response = await client.get(
-        f"/api/v1/test-runs/{run.id}/results",
+        f"/qai/api/v1/test-runs/{run.id}/results",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -482,7 +482,7 @@ async def test_get_results_summary(client: AsyncClient, auth_headers, db_session
     await db_session.commit()
     
     response = await client.get(
-        f"/api/v1/test-runs/{run.id}/results/summary",
+        f"/qai/api/v1/test-runs/{run.id}/results/summary",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -526,7 +526,7 @@ async def test_get_failed_tests(client: AsyncClient, auth_headers, db_session, t
     await db_session.commit()
     
     response = await client.get(
-        f"/api/v1/test-runs/{run.id}/results/failed",
+        f"/qai/api/v1/test-runs/{run.id}/results/failed",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -568,7 +568,7 @@ async def test_get_single_result(client: AsyncClient, auth_headers, db_session, 
     await db_session.refresh(result)
     
     response = await client.get(
-        f"/api/v1/test-runs/{run.id}/results/{result.id}",
+        f"/qai/api/v1/test-runs/{run.id}/results/{result.id}",
         headers=auth_headers,
     )
     assert response.status_code == 200

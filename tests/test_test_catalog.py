@@ -35,7 +35,7 @@ async def test_search_test_catalog(client: AsyncClient, auth_headers, test_suite
     await db_session.commit()
     
     response = await client.get(
-        "/api/v1/test-catalog",
+        "/qai/api/v1/test-catalog",
         headers=auth_headers,
     )
     
@@ -72,7 +72,7 @@ async def test_search_test_catalog_with_filters(client: AsyncClient, auth_header
     
     # Search by tags
     response = await client.get(
-        "/api/v1/test-catalog?tags=auth",
+        "/qai/api/v1/test-catalog?tags=auth",
         headers=auth_headers,
     )
     
@@ -83,7 +83,7 @@ async def test_search_test_catalog_with_filters(client: AsyncClient, auth_header
     
     # Search by file path
     response = await client.get(
-        "/api/v1/test-catalog?file_path=auth",
+        "/qai/api/v1/test-catalog?file_path=auth",
         headers=auth_headers,
     )
     
@@ -110,7 +110,7 @@ async def test_search_test_catalog_pagination(client: AsyncClient, auth_headers,
     
     # Page 1
     response = await client.get(
-        "/api/v1/test-catalog?page=1&page_size=5",
+        "/qai/api/v1/test-catalog?page=1&page_size=5",
         headers=auth_headers,
     )
     
@@ -124,7 +124,7 @@ async def test_search_test_catalog_pagination(client: AsyncClient, auth_headers,
     
     # Page 2
     response = await client.get(
-        "/api/v1/test-catalog?page=2&page_size=5",
+        "/qai/api/v1/test-catalog?page=2&page_size=5",
         headers=auth_headers,
     )
     
@@ -154,7 +154,7 @@ async def test_get_test_detail(client: AsyncClient, auth_headers, test_suite, db
     await db_session.refresh(test_case)
     
     response = await client.get(
-        f"/api/v1/test-catalog/{test_case.id}",
+        f"/qai/api/v1/test-catalog/{test_case.id}",
         headers=auth_headers,
     )
     
@@ -172,7 +172,7 @@ async def test_get_test_detail(client: AsyncClient, auth_headers, test_suite, db
 async def test_get_test_detail_not_found(client: AsyncClient, auth_headers):
     """Test getting non-existent test."""
     response = await client.get(
-        f"/api/v1/test-catalog/{uuid4()}",
+        f"/qai/api/v1/test-catalog/{uuid4()}",
         headers=auth_headers,
     )
     
@@ -223,7 +223,7 @@ async def test_get_test_execution_history(client: AsyncClient, auth_headers, tes
     await db_session.commit()
     
     response = await client.get(
-        f"/api/v1/test-catalog/{test_case.id}/history",
+        f"/qai/api/v1/test-catalog/{test_case.id}/history",
         headers=auth_headers,
     )
     
@@ -271,7 +271,7 @@ async def test_get_catalog_statistics(client: AsyncClient, auth_headers, test_su
     await db_session.commit()
     
     response = await client.get(
-        "/api/v1/test-catalog/statistics/summary",
+        "/qai/api/v1/test-catalog/statistics/summary",
         headers=auth_headers,
     )
     
@@ -303,7 +303,7 @@ async def test_catalog_cross_organization_isolation(client: AsyncClient, auth_he
     await db_session.commit()
     
     response = await client.get(
-        "/api/v1/test-catalog",
+        "/qai/api/v1/test-catalog",
         headers=auth_headers,
     )
     

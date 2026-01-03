@@ -70,7 +70,7 @@ async def test_jenkins_webhook_creates_test_run(
     }
     
     response = await client.post(
-        "/api/v1/webhooks/jenkins/results",
+        "/qai/api/v1/webhooks/jenkins/results",
         json=payload,
         headers={"Authorization": f"Bearer {test_user_token}"},
     )
@@ -120,7 +120,7 @@ async def test_jenkins_webhook_auto_creates_project(
     }
     
     response = await client.post(
-        "/api/v1/webhooks/jenkins/results",
+        "/qai/api/v1/webhooks/jenkins/results",
         json=payload,
         headers={"Authorization": f"Bearer {test_user_token}"},
     )
@@ -176,7 +176,7 @@ async def test_jenkins_webhook_auto_creates_suite(
     }
     
     response = await client.post(
-        "/api/v1/webhooks/jenkins/results",
+        "/qai/api/v1/webhooks/jenkins/results",
         json=payload,
         headers={"Authorization": f"Bearer {test_user_token}"},
     )
@@ -233,7 +233,7 @@ async def test_jenkins_webhook_auto_creates_test_cases(
     }
     
     response = await client.post(
-        "/api/v1/webhooks/jenkins/results",
+        "/qai/api/v1/webhooks/jenkins/results",
         json=payload,
         headers={"Authorization": f"Bearer {test_user_token}"},
     )
@@ -274,7 +274,7 @@ async def test_jenkins_webhook_requires_auth(
     }
     
     response = await client.post(
-        "/api/v1/webhooks/jenkins/results",
+        "/qai/api/v1/webhooks/jenkins/results",
         json=payload,
     )
     
@@ -323,7 +323,7 @@ async def test_jenkins_webhook_stores_jenkins_metadata(
     }
     
     response = await client.post(
-        "/api/v1/webhooks/jenkins/results",
+        "/qai/api/v1/webhooks/jenkins/results",
         json=payload,
         headers={"Authorization": f"Bearer {test_user_token}"},
     )
@@ -398,7 +398,7 @@ async def test_jenkins_webhook_creates_test_results(
     }
     
     response = await client.post(
-        "/api/v1/webhooks/jenkins/results",
+        "/qai/api/v1/webhooks/jenkins/results",
         json=payload,
         headers={"Authorization": f"Bearer {test_user_token}"},
     )

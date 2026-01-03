@@ -286,7 +286,7 @@ class TestWorkerHealthEndpoints:
         await db_session.commit()
         
         response = await client.get(
-            "/api/v1/workers/health/summary",
+            "/qai/api/v1/workers/health/summary",
             headers=auth_headers,
         )
         
@@ -323,7 +323,7 @@ class TestWorkerHealthEndpoints:
         await db_session.commit()
         
         response = await client.get(
-            f"/api/v1/workers/health/{worker.id}",
+            f"/qai/api/v1/workers/health/{worker.id}",
             headers=auth_headers,
         )
         
@@ -346,7 +346,7 @@ class TestWorkerHealthEndpoints:
         fake_id = uuid4()
         
         response = await client.get(
-            f"/api/v1/workers/health/{fake_id}",
+            f"/qai/api/v1/workers/health/{fake_id}",
             headers=auth_headers,
         )
         

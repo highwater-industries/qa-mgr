@@ -15,7 +15,7 @@ from unittest.mock import patch, MagicMock
 async def job_project(client: AsyncClient, auth_headers: dict):
     """Create a project for job tests."""
     response = await client.post(
-        "/api/v1/projects",
+        "/qai/api/v1/projects",
         json={"name": "Job Test Project", "key": "JOBT"},
         headers=auth_headers,
     )
@@ -27,7 +27,7 @@ async def job_project(client: AsyncClient, auth_headers: dict):
 async def job_test_run(client: AsyncClient, auth_headers: dict, job_project: dict):
     """Create a test run for job tests."""
     response = await client.post(
-        "/api/v1/test-runs",
+        "/qai/api/v1/test-runs",
         json={
             "name": "Job Test Run",
             "project_id": job_project["id"],
@@ -42,7 +42,7 @@ async def job_test_run(client: AsyncClient, auth_headers: dict, job_project: dic
 async def job_worker(client: AsyncClient, auth_headers: dict):
     """Create a worker for job tests."""
     response = await client.post(
-        "/api/v1/workers/register",
+        "/qai/api/v1/workers/register",
         json={
             "name": "job-test-worker",
             "worker_type": "celery",
@@ -73,7 +73,7 @@ class TestJobStatus:
         run_id = job_test_run["id"]
         
         response = await client.get(
-            f"/api/v1/jobs/{run_id}/status",
+            f"/qai/api/v1/jobs/{run_id}/status",
             headers=auth_headers,
         )
         
@@ -92,7 +92,7 @@ class TestJobStatus:
     ):
         """Test getting status for non-existent run."""
         response = await client.get(
-            f"/api/v1/jobs/{uuid4()}/status",
+            f"/qai/api/v1/jobs/{uuid4()}/status",
             headers=auth_headers,
         )
         
@@ -108,7 +108,7 @@ class TestJobStatus:
         run_id = job_test_run["id"]
         
         response = await client.get(
-            f"/api/v1/jobs/{run_id}/status",
+            f"/qai/api/v1/jobs/{run_id}/status",
             headers=auth_headers,
         )
         
@@ -136,7 +136,7 @@ class TestJobCancel:
         run_id = job_test_run["id"]
         
         response = await client.post(
-            f"/api/v1/jobs/{run_id}/cancel",
+            f"/qai/api/v1/jobs/{run_id}/cancel",
             headers=auth_headers,
         )
         
@@ -149,7 +149,7 @@ class TestJobCancel:
         
         # Verify run status changed
         status_response = await client.get(
-            f"/api/v1/jobs/{run_id}/status",
+            f"/qai/api/v1/jobs/{run_id}/status",
             headers=auth_headers,
         )
         assert status_response.json()["run_status"] == "cancelled"
@@ -161,7 +161,7 @@ class TestJobCancel:
     ):
         """Test cancelling a non-existent run."""
         response = await client.post(
-            f"/api/v1/jobs/{uuid4()}/cancel",
+            f"/qai/api/v1/jobs/{uuid4()}/cancel",
             headers=auth_headers,
         )
         
@@ -178,7 +178,7 @@ class TestJobCancel:
         
         # Complete the run first
         await client.post(
-            f"/api/v1/test-runs/{run_id}/complete",
+            f"/qai/api/v1/test-runs/{run_id}/complete",
             json={
                 "status": "completed",
                 "total_tests": 5,
@@ -190,7 +190,7 @@ class TestJobCancel:
         
         # Try to cancel
         response = await client.post(
-            f"/api/v1/jobs/{run_id}/cancel",
+            f"/qai/api/v1/jobs/{run_id}/cancel",
             headers=auth_headers,
         )
         
@@ -218,7 +218,7 @@ class TestJobRetry:
         
         # Fail the run first
         await client.post(
-            f"/api/v1/test-runs/{run_id}/complete",
+            f"/qai/api/v1/test-runs/{run_id}/complete",
             json={
                 "status": "failed",
                 "total_tests": 5,
@@ -230,7 +230,7 @@ class TestJobRetry:
         
         # Try to retry
         response = await client.post(
-            f"/api/v1/jobs/{run_id}/retry",
+            f"/qai/api/v1/jobs/{run_id}/retry",
             headers=auth_headers,
         )
         
@@ -252,13 +252,13 @@ class TestJobRetry:
         
         # Cancel the run first
         await client.post(
-            f"/api/v1/jobs/{run_id}/cancel",
+            f"/qai/api/v1/jobs/{run_id}/cancel",
             headers=auth_headers,
         )
         
         # Retry it
         response = await client.post(
-            f"/api/v1/jobs/{run_id}/retry",
+            f"/qai/api/v1/jobs/{run_id}/retry",
             headers=auth_headers,
         )
         
@@ -279,13 +279,13 @@ class TestJobRetry:
         
         # Start the run
         await client.post(
-            f"/api/v1/test-runs/{run_id}/start",
+            f"/qai/api/v1/test-runs/{run_id}/start",
             headers=auth_headers,
         )
         
         # Try to retry
         response = await client.post(
-            f"/api/v1/jobs/{run_id}/retry",
+            f"/qai/api/v1/jobs/{run_id}/retry",
             headers=auth_headers,
         )
         
@@ -301,7 +301,7 @@ class TestJobRetry:
     ):
         """Test retrying a non-existent run."""
         response = await client.post(
-            f"/api/v1/jobs/{uuid4()}/retry",
+            f"/qai/api/v1/jobs/{uuid4()}/retry",
             headers=auth_headers,
         )
         
