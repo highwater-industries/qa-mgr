@@ -6,7 +6,7 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_list_users(client: AsyncClient, admin_headers):
     """Test listing users (admin only)."""
-    response = await client.get("/qai/api/v1/users", headers=admin_headers)
+    response = await client.get("/quarion/api/v1/users", headers=admin_headers)
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
@@ -16,7 +16,7 @@ async def test_list_users(client: AsyncClient, admin_headers):
 async def test_create_user(client: AsyncClient, admin_headers):
     """Test creating a new user."""
     response = await client.post(
-        "/qai/api/v1/users",
+        "/quarion/api/v1/users",
         json={
             "username": "newuser",
             "email": "newuser@example.com",
@@ -35,7 +35,7 @@ async def test_create_user(client: AsyncClient, admin_headers):
 async def test_get_user_details(client: AsyncClient, admin_headers, test_user):
     """Test getting user details."""
     response = await client.get(
-        f"/qai/api/v1/users/{test_user.id}",
+        f"/quarion/api/v1/users/{test_user.id}",
         headers=admin_headers,
     )
     assert response.status_code == 200
@@ -47,7 +47,7 @@ async def test_get_user_details(client: AsyncClient, admin_headers, test_user):
 async def test_update_user(client: AsyncClient, admin_headers, test_user):
     """Test updating user information."""
     response = await client.put(
-        f"/qai/api/v1/users/{test_user.id}",
+        f"/quarion/api/v1/users/{test_user.id}",
         json={
             "full_name": "Updated Name",
             "email": "test@example.com",
@@ -76,7 +76,7 @@ async def test_assign_user_to_organization(client: AsyncClient, admin_headers, t
     await db_session.refresh(org)
     
     response = await client.post(
-        f"/qai/api/v1/users/{test_user.id}/workspaces",
+        f"/quarion/api/v1/users/{test_user.id}/workspaces",
         json={
             "workspace_id": str(org.id),
             "role": "member",
@@ -92,7 +92,7 @@ async def test_assign_user_to_organization(client: AsyncClient, admin_headers, t
 async def test_list_user_organizations(client: AsyncClient, admin_headers, test_user, test_workspace):
     """Test listing user's organizations."""
     response = await client.get(
-        f"/qai/api/v1/users/{test_user.id}/workspaces",
+        f"/quarion/api/v1/users/{test_user.id}/workspaces",
         headers=admin_headers,
     )
     assert response.status_code == 200
@@ -131,7 +131,7 @@ async def test_remove_user_from_organization(client: AsyncClient, admin_headers,
     await db_session.commit()
     
     response = await client.delete(
-        f"/qai/api/v1/users/{test_user.id}/workspaces/{org.id}",
+        f"/quarion/api/v1/users/{test_user.id}/workspaces/{org.id}",
         headers=admin_headers,
     )
     assert response.status_code == 204
@@ -140,7 +140,7 @@ async def test_remove_user_from_organization(client: AsyncClient, admin_headers,
 @pytest.mark.asyncio
 async def test_non_admin_cannot_list_users(client: AsyncClient, auth_headers):
     """Test that non-admin users cannot list all users."""
-    response = await client.get("/qai/api/v1/users", headers=auth_headers)
+    response = await client.get("/quarion/api/v1/users", headers=auth_headers)
     assert response.status_code == 403
 
 

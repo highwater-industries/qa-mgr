@@ -7,7 +7,7 @@ from httpx import AsyncClient
 async def test_create_test_suite(client: AsyncClient, auth_headers, test_project):
     """Test creating a test suite."""
     response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         json={
             "project_id": str(test_project.id),
             "name": "API Tests",
@@ -30,7 +30,7 @@ async def test_create_test_suite(client: AsyncClient, auth_headers, test_project
 async def test_create_test_suite_with_parent(client: AsyncClient, auth_headers, test_project, test_suite):
     """Test creating a child test suite."""
     response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         json={
             "project_id": str(test_project.id),
             "parent_id": str(test_suite.id),
@@ -51,7 +51,7 @@ async def test_create_test_suite_with_parent(client: AsyncClient, auth_headers, 
 async def test_create_test_suite_duplicate_path(client: AsyncClient, auth_headers, test_project, test_suite):
     """Test creating a suite with duplicate path fails."""
     response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         json={
             "project_id": str(test_project.id),
             "name": "Duplicate Path Suite",
@@ -69,7 +69,7 @@ async def test_create_test_suite_duplicate_path(client: AsyncClient, auth_header
 async def test_list_test_suites(client: AsyncClient, auth_headers, test_project, test_suite):
     """Test listing test suites for a project."""
     response = await client.get(
-        f"/qai/api/v1/test-suites?project_id={test_project.id}",
+        f"/quarion/api/v1/test-suites?project_id={test_project.id}",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -82,7 +82,7 @@ async def test_list_test_suites(client: AsyncClient, auth_headers, test_project,
 async def test_get_test_suite(client: AsyncClient, auth_headers, test_suite):
     """Test getting a specific test suite."""
     response = await client.get(
-        f"/qai/api/v1/test-suites/{test_suite.id}",
+        f"/quarion/api/v1/test-suites/{test_suite.id}",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -98,7 +98,7 @@ async def test_get_test_suite_not_found(client: AsyncClient, auth_headers):
     """Test getting a non-existent test suite."""
     from uuid import uuid4
     response = await client.get(
-        f"/qai/api/v1/test-suites/{uuid4()}",
+        f"/quarion/api/v1/test-suites/{uuid4()}",
         headers=auth_headers,
     )
     assert response.status_code == 404
@@ -108,7 +108,7 @@ async def test_get_test_suite_not_found(client: AsyncClient, auth_headers):
 async def test_update_test_suite(client: AsyncClient, auth_headers, test_suite):
     """Test updating a test suite."""
     response = await client.put(
-        f"/qai/api/v1/test-suites/{test_suite.id}",
+        f"/quarion/api/v1/test-suites/{test_suite.id}",
         json={
             "name": "Updated Suite Name",
             "description": "Updated description",
@@ -128,7 +128,7 @@ async def test_delete_test_suite(client: AsyncClient, auth_headers, test_project
     """Test deleting an empty test suite."""
     # Create a suite to delete
     create_response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         json={
             "project_id": str(test_project.id),
             "name": "Suite to Delete",
@@ -143,14 +143,14 @@ async def test_delete_test_suite(client: AsyncClient, auth_headers, test_project
     
     # Delete the suite
     delete_response = await client.delete(
-        f"/qai/api/v1/test-suites/{suite_id}",
+        f"/quarion/api/v1/test-suites/{suite_id}",
         headers=auth_headers,
     )
     assert delete_response.status_code == 204
     
     # Verify it's deleted
     get_response = await client.get(
-        f"/qai/api/v1/test-suites/{suite_id}",
+        f"/quarion/api/v1/test-suites/{suite_id}",
         headers=auth_headers,
     )
     assert get_response.status_code == 404
@@ -161,7 +161,7 @@ async def test_delete_test_suite_with_children_fails(client: AsyncClient, auth_h
     """Test that deleting a suite with children fails."""
     # Create parent suite
     parent_response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         json={
             "project_id": str(test_project.id),
             "name": "Parent Suite",
@@ -175,7 +175,7 @@ async def test_delete_test_suite_with_children_fails(client: AsyncClient, auth_h
     
     # Create child suite
     child_response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         json={
             "project_id": str(test_project.id),
             "parent_id": parent_id,
@@ -189,7 +189,7 @@ async def test_delete_test_suite_with_children_fails(client: AsyncClient, auth_h
     
     # Try to delete parent (should fail)
     delete_response = await client.delete(
-        f"/qai/api/v1/test-suites/{parent_id}",
+        f"/quarion/api/v1/test-suites/{parent_id}",
         headers=auth_headers,
     )
     assert delete_response.status_code == 400
@@ -201,7 +201,7 @@ async def test_get_test_suite_tree(client: AsyncClient, auth_headers, test_suite
     """Test getting a test suite tree with children."""
     # Create a child suite
     child_response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         json={
             "project_id": str(test_project.id),
             "parent_id": str(test_suite.id),
@@ -215,7 +215,7 @@ async def test_get_test_suite_tree(client: AsyncClient, auth_headers, test_suite
     
     # Get the tree
     response = await client.get(
-        f"/qai/api/v1/test-suites/{test_suite.id}/tree",
+        f"/quarion/api/v1/test-suites/{test_suite.id}/tree",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -231,7 +231,7 @@ async def test_create_test_suite_invalid_project(client: AsyncClient, auth_heade
     """Test creating a suite with non-existent project fails."""
     from uuid import uuid4
     response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         json={
             "project_id": str(uuid4()),
             "name": "Invalid Project Suite",
@@ -248,7 +248,7 @@ async def test_create_test_suite_invalid_project(client: AsyncClient, auth_heade
 async def test_create_test_suite_requires_auth(client: AsyncClient, test_project):
     """Test that creating a suite requires authentication."""
     response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         json={
             "project_id": str(test_project.id),
             "name": "No Auth Suite",

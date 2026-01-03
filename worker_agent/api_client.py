@@ -50,7 +50,7 @@ class APIClient:
         Raises:
             httpx.HTTPStatusError: If registration fails
         """
-        url = f"{self.base_url}/qai/api/v1/workers/register"
+        url = f"{self.base_url}/quarion/api/v1/workers/register"
         
         payload = {
             "name": self.config.worker_name,
@@ -105,7 +105,7 @@ class APIClient:
             logger.warning("Cannot send heartbeat: worker not registered")
             return None
         
-        url = f"{self.base_url}/qai/api/v1/workers/{self._worker_id}/heartbeat"
+        url = f"{self.base_url}/quarion/api/v1/workers/{self._worker_id}/heartbeat"
         
         payload = {
             "status": status,

@@ -15,7 +15,7 @@ from database.models.worker import TestWorker
 async def jq_test_project(client, test_workspace, test_user_token):
     """Create a test project."""
     response = await client.post(
-        "/qai/api/v1/projects",
+        "/quarion/api/v1/projects",
         headers={"Authorization": f"Bearer {test_user_token}"},
         json={
             "name": "Job Queue Test Project",
@@ -31,7 +31,7 @@ async def jq_test_project(client, test_workspace, test_user_token):
 async def jq_test_suite(client, test_workspace, test_user_token, jq_test_project):
     """Create a test suite."""
     response = await client.post(
-        "/qai/api/v1/test-suites",
+        "/quarion/api/v1/test-suites",
         headers={"Authorization": f"Bearer {test_user_token}"},
         json={
             "project_id": jq_test_project["id"],
@@ -48,7 +48,7 @@ async def jq_test_suite(client, test_workspace, test_user_token, jq_test_project
 async def jq_test_worker(client, test_workspace, test_user_token):
     """Register a test worker."""
     response = await client.post(
-        "/qai/api/v1/workers/register",
+        "/quarion/api/v1/workers/register",
         headers={"Authorization": f"Bearer {test_user_token}"},
         json={
             "name": "jq-test-worker-1",
@@ -76,7 +76,7 @@ async def test_create_run_queues_celery_task(
         
         # Create test run
         response = await client.post(
-            "/qai/api/v1/test-runs",
+            "/quarion/api/v1/test-runs",
             headers={"Authorization": f"Bearer {test_user_token}"},
             json={
                 "project_id": jq_test_project["id"],
@@ -105,7 +105,7 @@ async def test_create_run_without_worker(
     with patch("api.services.test_run.execute_test_run.delay") as mock_delay:
         # Create test run (no workers registered as available)
         response = await client.post(
-            "/qai/api/v1/test-runs",
+            "/quarion/api/v1/test-runs",
             headers={"Authorization": f"Bearer {test_user_token}"},
             json={
                 "project_id": jq_test_project["id"],
@@ -138,7 +138,7 @@ async def test_run_has_celery_task_id(
         
         # Create test run
         response = await client.post(
-            "/qai/api/v1/test-runs",
+            "/quarion/api/v1/test-runs",
             headers={"Authorization": f"Bearer {test_user_token}"},
             json={
                 "project_id": jq_test_project["id"],
@@ -153,7 +153,7 @@ async def test_run_has_celery_task_id(
         
         # Get the test run to check celery_task_id
         response = await client.get(
-            f"/qai/api/v1/test-runs/{data['id']}",
+            f"/quarion/api/v1/test-runs/{data['id']}",
             headers={"Authorization": f"Bearer {test_user_token}"},
         )
         
@@ -175,7 +175,7 @@ async def test_run_has_queued_at_timestamp(
         
         # Create test run
         response = await client.post(
-            "/qai/api/v1/test-runs",
+            "/quarion/api/v1/test-runs",
             headers={"Authorization": f"Bearer {test_user_token}"},
             json={
                 "project_id": jq_test_project["id"],
@@ -190,7 +190,7 @@ async def test_run_has_queued_at_timestamp(
         
         # Get the test run to check queued_at
         response = await client.get(
-            f"/qai/api/v1/test-runs/{data['id']}",
+            f"/quarion/api/v1/test-runs/{data['id']}",
             headers={"Authorization": f"Bearer {test_user_token}"},
         )
         
@@ -209,7 +209,7 @@ async def test_worker_selection_for_job(
     """Test that worker selection picks available workers."""
     # Register multiple workers
     worker1 = await client.post(
-        "/qai/api/v1/workers/register",
+        "/quarion/api/v1/workers/register",
         headers={"Authorization": f"Bearer {test_user_token}"},
         json={
             "name": "selection-worker-1",
@@ -223,7 +223,7 @@ async def test_worker_selection_for_job(
     assert worker1.status_code == 201
     
     worker2 = await client.post(
-        "/qai/api/v1/workers/register",
+        "/quarion/api/v1/workers/register",
         headers={"Authorization": f"Bearer {test_user_token}"},
         json={
             "name": "selection-worker-2",
@@ -244,7 +244,7 @@ async def test_worker_selection_for_job(
         
         # Create test run
         response = await client.post(
-            "/qai/api/v1/test-runs",
+            "/quarion/api/v1/test-runs",
             headers={"Authorization": f"Bearer {test_user_token}"},
             json={
                 "project_id": jq_test_project["id"],

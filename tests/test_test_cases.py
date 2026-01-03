@@ -7,7 +7,7 @@ from httpx import AsyncClient
 async def test_create_test_case(client: AsyncClient, auth_headers, test_suite):
     """Test creating a test case."""
     response = await client.post(
-        "/qai/api/v1/test-cases",
+        "/quarion/api/v1/test-cases",
         json={
             "suite_id": str(test_suite.id),
             "name": "Test Login Flow",
@@ -37,7 +37,7 @@ async def test_create_test_case(client: AsyncClient, auth_headers, test_suite):
 async def test_create_test_case_duplicate_test_id(client: AsyncClient, auth_headers, test_suite, test_case):
     """Test creating a case with duplicate test_id fails."""
     response = await client.post(
-        "/qai/api/v1/test-cases",
+        "/quarion/api/v1/test-cases",
         json={
             "suite_id": str(test_suite.id),
             "name": "Duplicate Test",
@@ -54,7 +54,7 @@ async def test_create_test_case_duplicate_test_id(client: AsyncClient, auth_head
 async def test_list_test_cases(client: AsyncClient, auth_headers, test_suite, test_case):
     """Test listing test cases for a suite."""
     response = await client.get(
-        f"/qai/api/v1/test-cases?suite_id={test_suite.id}",
+        f"/quarion/api/v1/test-cases?suite_id={test_suite.id}",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -82,14 +82,14 @@ async def test_list_test_cases_active_only(client: AsyncClient, auth_headers, te
     
     # List all
     response_all = await client.get(
-        f"/qai/api/v1/test-cases?suite_id={test_suite.id}",
+        f"/quarion/api/v1/test-cases?suite_id={test_suite.id}",
         headers=auth_headers,
     )
     all_cases = response_all.json()
     
     # List active only
     response_active = await client.get(
-        f"/qai/api/v1/test-cases?suite_id={test_suite.id}&active_only=true",
+        f"/quarion/api/v1/test-cases?suite_id={test_suite.id}&active_only=true",
         headers=auth_headers,
     )
     active_cases = response_active.json()
@@ -103,7 +103,7 @@ async def test_list_test_cases_active_only(client: AsyncClient, auth_headers, te
 async def test_get_test_case(client: AsyncClient, auth_headers, test_case):
     """Test getting a specific test case."""
     response = await client.get(
-        f"/qai/api/v1/test-cases/{test_case.id}",
+        f"/quarion/api/v1/test-cases/{test_case.id}",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -118,7 +118,7 @@ async def test_get_test_case_not_found(client: AsyncClient, auth_headers):
     """Test getting a non-existent test case."""
     from uuid import uuid4
     response = await client.get(
-        f"/qai/api/v1/test-cases/{uuid4()}",
+        f"/quarion/api/v1/test-cases/{uuid4()}",
         headers=auth_headers,
     )
     assert response.status_code == 404
@@ -128,7 +128,7 @@ async def test_get_test_case_not_found(client: AsyncClient, auth_headers):
 async def test_update_test_case(client: AsyncClient, auth_headers, test_case):
     """Test updating a test case."""
     response = await client.put(
-        f"/qai/api/v1/test-cases/{test_case.id}",
+        f"/quarion/api/v1/test-cases/{test_case.id}",
         json={
             "name": "Updated Test Case",
             "description": "Updated description",
@@ -151,7 +151,7 @@ async def test_update_test_case(client: AsyncClient, auth_headers, test_case):
 async def test_update_test_case_deactivate(client: AsyncClient, auth_headers, test_case):
     """Test deactivating a test case."""
     response = await client.put(
-        f"/qai/api/v1/test-cases/{test_case.id}",
+        f"/quarion/api/v1/test-cases/{test_case.id}",
         json={"is_active": False},
         headers=auth_headers,
     )
@@ -165,7 +165,7 @@ async def test_delete_test_case(client: AsyncClient, auth_headers, test_suite):
     """Test deleting a test case."""
     # Create a test case to delete
     create_response = await client.post(
-        "/qai/api/v1/test-cases",
+        "/quarion/api/v1/test-cases",
         json={
             "suite_id": str(test_suite.id),
             "name": "Test to Delete",
@@ -179,14 +179,14 @@ async def test_delete_test_case(client: AsyncClient, auth_headers, test_suite):
     
     # Delete the test case
     delete_response = await client.delete(
-        f"/qai/api/v1/test-cases/{case_id}",
+        f"/quarion/api/v1/test-cases/{case_id}",
         headers=auth_headers,
     )
     assert delete_response.status_code == 204
     
     # Verify it's deleted
     get_response = await client.get(
-        f"/qai/api/v1/test-cases/{case_id}",
+        f"/quarion/api/v1/test-cases/{case_id}",
         headers=auth_headers,
     )
     assert get_response.status_code == 404
@@ -197,7 +197,7 @@ async def test_create_test_case_invalid_suite(client: AsyncClient, auth_headers)
     """Test creating a case with non-existent suite fails."""
     from uuid import uuid4
     response = await client.post(
-        "/qai/api/v1/test-cases",
+        "/quarion/api/v1/test-cases",
         json={
             "suite_id": str(uuid4()),
             "name": "Invalid Suite Case",
@@ -214,7 +214,7 @@ async def test_create_test_case_invalid_suite(client: AsyncClient, auth_headers)
 async def test_create_test_case_requires_auth(client: AsyncClient, test_suite):
     """Test that creating a case requires authentication."""
     response = await client.post(
-        "/qai/api/v1/test-cases",
+        "/quarion/api/v1/test-cases",
         json={
             "suite_id": str(test_suite.id),
             "name": "No Auth Case",
@@ -229,7 +229,7 @@ async def test_create_test_case_requires_auth(client: AsyncClient, test_suite):
 async def test_create_test_case_minimal(client: AsyncClient, auth_headers, test_suite):
     """Test creating a test case with minimal required fields."""
     response = await client.post(
-        "/qai/api/v1/test-cases",
+        "/quarion/api/v1/test-cases",
         json={
             "suite_id": str(test_suite.id),
             "name": "Minimal Test",

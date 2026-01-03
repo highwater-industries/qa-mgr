@@ -7,7 +7,7 @@ from httpx import AsyncClient
 async def test_login_success(client: AsyncClient, test_user):
     """Test successful login."""
     response = await client.post(
-        "/qai/api/v1/auth/login",
+        "/quarion/api/v1/auth/login",
         json={"username": "testuser", "password": "testpass123"},
     )
     assert response.status_code == 200
@@ -20,7 +20,7 @@ async def test_login_success(client: AsyncClient, test_user):
 async def test_login_invalid_credentials(client: AsyncClient, test_user):
     """Test login with invalid credentials."""
     response = await client.post(
-        "/qai/api/v1/auth/login",
+        "/quarion/api/v1/auth/login",
         json={"username": "testuser", "password": "wrongpassword"},
     )
     assert response.status_code == 401
@@ -29,7 +29,7 @@ async def test_login_invalid_credentials(client: AsyncClient, test_user):
 @pytest.mark.asyncio
 async def test_get_current_user(client: AsyncClient, auth_headers):
     """Test getting current user info."""
-    response = await client.get("/qai/api/v1/auth/me", headers=auth_headers)
+    response = await client.get("/quarion/api/v1/auth/me", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "testuser"
@@ -39,7 +39,7 @@ async def test_get_current_user(client: AsyncClient, auth_headers):
 @pytest.mark.asyncio
 async def test_get_my_organizations(client: AsyncClient, auth_headers, test_workspace):
     """Test listing user's organizations."""
-    response = await client.get("/qai/api/v1/auth/my-workspaces", headers=auth_headers)
+    response = await client.get("/quarion/api/v1/auth/my-workspaces", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert "workspaces" in data
@@ -78,7 +78,7 @@ async def test_switch_organization(client: AsyncClient, auth_headers, test_works
     
     # Switch to second organization
     response = await client.post(
-        "/qai/api/v1/auth/switch-workspace",
+        "/quarion/api/v1/auth/switch-workspace",
         json={"workspace_id": str(org2.id)},
         headers=auth_headers,
     )
@@ -87,7 +87,7 @@ async def test_switch_organization(client: AsyncClient, auth_headers, test_works
     assert data["workspace_name"] == "Second Organization"
     
     # Verify user info reflects the change
-    response = await client.get("/qai/api/v1/auth/me", headers=auth_headers)
+    response = await client.get("/quarion/api/v1/auth/me", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["current_workspace_id"] == str(org2.id)
@@ -96,7 +96,7 @@ async def test_switch_organization(client: AsyncClient, auth_headers, test_works
 @pytest.mark.asyncio
 async def test_unauthorized_access(client: AsyncClient):
     """Test accessing protected endpoint without authentication."""
-    response = await client.get("/qai/api/v1/auth/me")
+    response = await client.get("/quarion/api/v1/auth/me")
     assert response.status_code == 401
 
 

@@ -33,7 +33,7 @@ async def test_register_worker(
     }
     
     response = await client.post(
-        "/qai/api/v1/workers/register",
+        "/quarion/api/v1/workers/register",
         json=payload,
         headers=auth_headers,
     )
@@ -79,7 +79,7 @@ async def test_register_worker_updates_existing(
     }
     
     response = await client.post(
-        "/qai/api/v1/workers/register",
+        "/quarion/api/v1/workers/register",
         json=payload,
         headers=auth_headers,
     )
@@ -136,7 +136,7 @@ async def test_send_heartbeat(
     }
     
     response = await client.post(
-        f"/qai/api/v1/workers/{worker.id}/heartbeat",
+        f"/quarion/api/v1/workers/{worker.id}/heartbeat",
         json=payload,
         headers=auth_headers,
     )
@@ -177,7 +177,7 @@ async def test_list_workers(
     
     # List all workers
     response = await client.get(
-        "/qai/api/v1/workers",
+        "/quarion/api/v1/workers",
         headers=auth_headers,
     )
     
@@ -233,7 +233,7 @@ async def test_list_workers_with_filters(
     
     # Filter by status
     response = await client.get(
-        "/qai/api/v1/workers?status=idle",
+        "/quarion/api/v1/workers?status=idle",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -243,7 +243,7 @@ async def test_list_workers_with_filters(
     
     # Filter by worker_type
     response = await client.get(
-        "/qai/api/v1/workers?worker_type=jenkins",
+        "/quarion/api/v1/workers?worker_type=jenkins",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -253,7 +253,7 @@ async def test_list_workers_with_filters(
     
     # Filter by availability
     response = await client.get(
-        "/qai/api/v1/workers?is_available=true",
+        "/quarion/api/v1/workers?is_available=true",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -285,7 +285,7 @@ async def test_get_worker(
     await db_session.refresh(worker)
     
     response = await client.get(
-        f"/qai/api/v1/workers/{worker.id}",
+        f"/quarion/api/v1/workers/{worker.id}",
         headers=auth_headers,
     )
     
@@ -319,7 +319,7 @@ async def test_update_worker_availability(
     
     # Disable worker
     response = await client.patch(
-        f"/qai/api/v1/workers/{worker.id}/availability?is_available=false",
+        f"/quarion/api/v1/workers/{worker.id}/availability?is_available=false",
         headers=auth_headers,
     )
     
@@ -329,7 +329,7 @@ async def test_update_worker_availability(
     
     # Enable worker
     response = await client.patch(
-        f"/qai/api/v1/workers/{worker.id}/availability?is_available=true",
+        f"/quarion/api/v1/workers/{worker.id}/availability?is_available=true",
         headers=auth_headers,
     )
     
@@ -358,7 +358,7 @@ async def test_delete_worker(
     await db_session.refresh(worker)
     
     response = await client.delete(
-        f"/qai/api/v1/workers/{worker.id}",
+        f"/quarion/api/v1/workers/{worker.id}",
         headers=auth_headers,
     )
     
@@ -432,7 +432,7 @@ async def test_list_available_workers(
     
     # Get all available workers
     response = await client.get(
-        "/qai/api/v1/workers/available/list",
+        "/quarion/api/v1/workers/available/list",
         headers=auth_headers,
     )
     
@@ -447,7 +447,7 @@ async def test_list_available_workers(
     
     # Filter by tags
     response = await client.get(
-        "/qai/api/v1/workers/available/list?required_tags=docker",
+        "/quarion/api/v1/workers/available/list?required_tags=docker",
         headers=auth_headers,
     )
     
@@ -468,7 +468,7 @@ async def test_worker_not_found(
     fake_id = uuid4()
     
     response = await client.get(
-        f"/qai/api/v1/workers/{fake_id}",
+        f"/quarion/api/v1/workers/{fake_id}",
         headers=auth_headers,
     )
     

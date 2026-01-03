@@ -321,7 +321,7 @@ class TestScheduleEndpoints:
     ):
         """Test POST /schedules endpoint."""
         response = await client.post(
-            "/qai/api/v1/schedules",
+            "/quarion/api/v1/schedules",
             headers=auth_headers,
             json={
                 "project_id": str(schedule_project.id),
@@ -350,7 +350,7 @@ class TestScheduleEndpoints:
     ):
         """Test that invalid cron returns 400."""
         response = await client.post(
-            "/qai/api/v1/schedules",
+            "/quarion/api/v1/schedules",
             headers=auth_headers,
             json={
                 "project_id": str(schedule_project.id),
@@ -371,7 +371,7 @@ class TestScheduleEndpoints:
     ):
         """Test GET /schedules endpoint."""
         response = await client.get(
-            "/qai/api/v1/schedules",
+            "/quarion/api/v1/schedules",
             headers=auth_headers,
         )
         
@@ -390,7 +390,7 @@ class TestScheduleEndpoints:
     ):
         """Test GET /schedules/{schedule_id} endpoint."""
         response = await client.get(
-            f"/qai/api/v1/schedules/{test_schedule.id}",
+            f"/quarion/api/v1/schedules/{test_schedule.id}",
             headers=auth_headers,
         )
         
@@ -409,7 +409,7 @@ class TestScheduleEndpoints:
     ):
         """Test PATCH /schedules/{schedule_id} endpoint."""
         response = await client.patch(
-            f"/qai/api/v1/schedules/{test_schedule.id}",
+            f"/quarion/api/v1/schedules/{test_schedule.id}",
             headers=auth_headers,
             json={
                 "name": "Updated via API",
@@ -432,7 +432,7 @@ class TestScheduleEndpoints:
     ):
         """Test DELETE /schedules/{schedule_id} endpoint."""
         response = await client.delete(
-            f"/qai/api/v1/schedules/{test_schedule.id}",
+            f"/quarion/api/v1/schedules/{test_schedule.id}",
             headers=auth_headers,
         )
         
@@ -440,7 +440,7 @@ class TestScheduleEndpoints:
         
         # Verify it's gone
         response = await client.get(
-            f"/qai/api/v1/schedules/{test_schedule.id}",
+            f"/quarion/api/v1/schedules/{test_schedule.id}",
             headers=auth_headers,
         )
         assert response.status_code == 404
@@ -455,7 +455,7 @@ class TestScheduleEndpoints:
         """Test POST /schedules/{schedule_id}/toggle endpoint."""
         # Deactivate
         response = await client.post(
-            f"/qai/api/v1/schedules/{test_schedule.id}/toggle?is_active=false",
+            f"/quarion/api/v1/schedules/{test_schedule.id}/toggle?is_active=false",
             headers=auth_headers,
         )
         
@@ -472,7 +472,7 @@ class TestScheduleEndpoints:
     ):
         """Test POST /schedules/{schedule_id}/trigger endpoint."""
         response = await client.post(
-            f"/qai/api/v1/schedules/{test_schedule.id}/trigger",
+            f"/quarion/api/v1/schedules/{test_schedule.id}/trigger",
             headers=auth_headers,
         )
         

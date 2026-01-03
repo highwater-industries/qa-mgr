@@ -7,7 +7,7 @@ from httpx import AsyncClient
 async def test_create_project_simplified(client: AsyncClient, auth_headers):
     """Test creating project using simplified endpoint (current Workspace)."""
     response = await client.post(
-        "/qai/api/v1/projects",
+        "/quarion/api/v1/projects",
         json={
             "name": "Test Project",
             "description": "A test project",
@@ -36,7 +36,7 @@ async def test_list_projects_simplified(client: AsyncClient, auth_headers, db_se
     db_session.add(project)
     await db_session.commit()
     
-    response = await client.get("/qai/api/v1/projects", headers=auth_headers)
+    response = await client.get("/quarion/api/v1/projects", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert len(data) > 0
@@ -58,7 +58,7 @@ async def test_get_project_details(client: AsyncClient, auth_headers, db_session
     await db_session.commit()
     await db_session.refresh(project)
     
-    response = await client.get(f"/qai/api/v1/projects/{project.id}", headers=auth_headers)
+    response = await client.get(f"/quarion/api/v1/projects/{project.id}", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "Detail Project"
@@ -81,7 +81,7 @@ async def test_update_project(client: AsyncClient, auth_headers, db_session, tes
     await db_session.refresh(project)
     
     response = await client.put(
-        f"/qai/api/v1/projects/{project.id}",
+        f"/quarion/api/v1/projects/{project.id}",
         json={
             "name": "Updated Name",
             "description": "Updated description",
@@ -110,7 +110,7 @@ async def test_delete_project(client: AsyncClient, auth_headers, db_session, tes
     await db_session.refresh(project)
     
     response = await client.delete(
-        f"/qai/api/v1/projects/{project.id}",
+        f"/quarion/api/v1/projects/{project.id}",
         headers=auth_headers,
     )
     assert response.status_code == 204
@@ -132,7 +132,7 @@ async def test_archive_project(client: AsyncClient, auth_headers, db_session, te
     await db_session.refresh(project)
     
     response = await client.post(
-        f"/qai/api/v1/projects/{project.id}/archive",
+        f"/quarion/api/v1/projects/{project.id}/archive",
         headers=auth_headers,
     )
     assert response.status_code == 200
@@ -158,7 +158,7 @@ async def test_cannot_create_duplicate_project_name(client: AsyncClient, auth_he
     
     # Try to create second project with same name
     response = await client.post(
-        "/qai/api/v1/projects",
+        "/quarion/api/v1/projects",
         json={
             "name": "Unique Name",
             "description": "Duplicate attempt",
@@ -187,7 +187,7 @@ async def test_filter_projects_by_tag(client: AsyncClient, auth_headers, db_sess
     db_session.add_all([project1, project2])
     await db_session.commit()
     
-    response = await client.get("/qai/api/v1/projects?tags=backend", headers=auth_headers)
+    response = await client.get("/quarion/api/v1/projects?tags=backend", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     print(f"Filter response: {data}")
