@@ -14,10 +14,10 @@ from api.auth.password import verify_password
 from api.schemas.auth import AuthLoginRequest, AuthTokenResponse
 from api.schemas.user import UserMeResponse
 from api.schemas.user_organization import (
-    SwitchOrganizationRequest,
+    SwitchWorkspaceRequest,
     SwitchWorkspaceResponse,
-    UserOrganizationsListResponse,
-    UserOrganizationInfo,
+    UserWorkspacesListResponse,
+    UserWorkspaceInfo,
 )
 from api.dependencies import get_current_user
 
@@ -100,14 +100,14 @@ async def get_current_user_info(
 
 @router.get(
     "/my-workspaces",
-    response_model=UserOrganizationsListResponse,
+    response_model=UserWorkspacesListResponse,
     summary="List my workspaces",
     description="Get all workspaces the current user has access to.",
 )
-async def get_my_organizations(
+async def get_my_workspaces(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> UserOrganizationsListResponse:
+) -> UserWorkspacesListResponse:
     """
     List all workspaces the current user has access to.
     
@@ -133,11 +133,11 @@ async def get_my_organizations(
     organization_roles = result.all()
     
     # Build response
-    organization_list = [
-        UserOrganizationInfo(
+    workspace_list = [
+        UserWorkspaceInfo(
             workspace_id=role.workspace_id,
-            organization_name=organization.name,
-            organization_slug=organization.slug,
+            workspace_name=organization.name,
+            workspace_slug=organization.slug,
             role=role.role,
             granted_at=role.granted_at,
             is_current=(role.workspace_id == current_user.current_workspace_id),
@@ -145,20 +145,20 @@ async def get_my_organizations(
         for role, organization in organization_roles
     ]
     
-    return UserOrganizationsListResponse(
-        organizations=organization_list,
+    return UserWorkspacesListResponse(
+        workspaces=workspace_list,
         current_workspace_id=current_user.current_workspace_id,
     )
 
 
 @router.post(
-    "/switch-organization",
+    "/switch-workspace",
     response_model=SwitchWorkspaceResponse,
-    summary="Switch current organization",
-    description="Switch to a different organization that you have access to.",
+    summary="Switch current workspace",
+    description="Switch to a different workspace that you have access to.",
 )
-async def switch_organization(
-    request: SwitchOrganizationRequest,
+async def switch_workspace(
+    request: SwitchWorkspaceRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> SwitchWorkspaceResponse:
@@ -209,7 +209,7 @@ async def switch_organization(
     
     return SwitchWorkspaceResponse(
         current_workspace_id=organization.id,
-        organization_name=organization.name,
+        workspace_name=organization.name,
     )
 
 

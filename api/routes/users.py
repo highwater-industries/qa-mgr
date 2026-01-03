@@ -21,9 +21,9 @@ from api.schemas.user import (
     UserDeactivateRequest,
 )
 from api.schemas.user_organization import (
-    UserOrganizationAssignRequest,
-    UserOrganizationInfo,
-    UserOrganizationsListResponse,
+    UserWorkspaceAssignRequest,
+    UserWorkspaceInfo,
+    UserWorkspacesListResponse,
 )
 
 router = APIRouter()
@@ -280,15 +280,15 @@ async def reactivate_user(
 
 @router.get(
     "/{user_id}/workspaces",
-    response_model=UserOrganizationsListResponse,
+    response_model=UserWorkspacesListResponse,
     summary="List user's workspaces",
     description="Get all workspaces a user has access to. Admin or self only.",
 )
-async def get_user_organizations(
+async def list_user_workspaces(
     user_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> UserOrganizationsListResponse:
+) -> UserWorkspacesListResponse:
     """
     List all organizations a user has access to.
     
@@ -328,11 +328,11 @@ async def get_user_organizations(
     organization_roles = result.all()
     
     # Build response
-    organization_list = [
-        UserOrganizationInfo(
+    workspace_list = [
+        UserWorkspaceInfo(
             workspace_id=role.workspace_id,
-            organization_name=organization.name,
-            organization_slug=organization.slug,
+            workspace_name=organization.name,
+            workspace_slug=organization.slug,
             role=role.role,
             granted_at=role.granted_at,
             is_current=(role.workspace_id == user.current_workspace_id),
@@ -340,8 +340,8 @@ async def get_user_organizations(
         for role, organization in organization_roles
     ]
     
-    return UserOrganizationsListResponse(
-        organizations=organization_list,
+    return UserWorkspacesListResponse(
+        workspaces=workspace_list,
         current_workspace_id=user.current_workspace_id,
     )
 
@@ -352,9 +352,9 @@ async def get_user_organizations(
     summary="Assign user to workspace",
     description="Assign user to a workspace with specified role. Admin only.",
 )
-async def assign_user_to_organization(
+async def assign_user_to_workspace(
     user_id: UUID,
-    assignment: UserOrganizationAssignRequest,
+    assignment: UserWorkspaceAssignRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:

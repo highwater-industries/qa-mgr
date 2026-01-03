@@ -42,9 +42,9 @@ async def test_get_my_organizations(client: AsyncClient, auth_headers, test_work
     response = await client.get("/api/v1/auth/my-workspaces", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert "organizations" in data
-    assert len(data["organizations"]) > 0
-    assert data["organizations"][0]["organization_name"] == "Test Workspace"
+    assert "workspaces" in data
+    assert len(data["workspaces"]) > 0
+    assert data["workspaces"][0]["workspace_name"] == "Test Workspace"
 
 
 @pytest.mark.asyncio
@@ -78,13 +78,13 @@ async def test_switch_organization(client: AsyncClient, auth_headers, test_works
     
     # Switch to second organization
     response = await client.post(
-        "/api/v1/auth/switch-organization",
+        "/api/v1/auth/switch-workspace",
         json={"workspace_id": str(org2.id)},
         headers=auth_headers,
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["organization_name"] == "Second Organization"
+    assert data["workspace_name"] == "Second Organization"
     
     # Verify user info reflects the change
     response = await client.get("/api/v1/auth/me", headers=auth_headers)

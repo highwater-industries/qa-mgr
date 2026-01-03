@@ -99,11 +99,11 @@ async def test_list_user_organizations(client: AsyncClient, admin_headers, test_
     data = response.json()
     print(f"Response data: {data}")
     assert len(data) > 0
-    # Check if data is a list of dicts with organization_name
+    # Check if data is a list of dicts with workspace_name
     if isinstance(data, list) and len(data) > 0:
         first_item = data[0]
         if isinstance(first_item, dict):
-            assert any(org.get("organization_name") == "Test Workspace" for org in data)
+            assert any(org.get("workspace_name") == "Test Workspace" for org in data)
 
 
 @pytest.mark.asyncio
