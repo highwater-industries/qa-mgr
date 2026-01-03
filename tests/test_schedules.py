@@ -24,11 +24,11 @@ def utc_now_offset(seconds: int) -> datetime:
 # =============================================================================
 
 @pytest.fixture
-async def schedule_project(db_session: AsyncSession, test_organization) -> Project:
+async def schedule_project(db_session: AsyncSession, test_workspace) -> Project:
     """Create a test project for schedule tests."""
     project = Project(
         id=uuid4(),
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Schedule Test Project",
         project_key="SCHED",
     )
@@ -41,14 +41,14 @@ async def schedule_project(db_session: AsyncSession, test_organization) -> Proje
 @pytest.fixture
 async def test_schedule(
     db_session: AsyncSession,
-    test_organization,
+    test_workspace,
     schedule_project: Project,
     test_user,
 ) -> Schedule:
     """Create a test schedule."""
     schedule = Schedule(
         id=uuid4(),
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         project_id=schedule_project.id,
         name="Nightly Tests",
         cron_expression="0 2 * * *",  # 2 AM daily
@@ -76,7 +76,7 @@ class TestScheduleService:
     async def test_create_schedule(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
         schedule_project: Project,
         test_user,
     ):
@@ -93,7 +93,7 @@ class TestScheduleService:
         )
         
         schedule = await service.create_schedule(
-            data, test_organization.id, test_user.id
+            data, test_workspace.id, test_user.id
         )
         await db_session.commit()
         
@@ -109,7 +109,7 @@ class TestScheduleService:
     async def test_create_schedule_invalid_cron(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
         schedule_project: Project,
         test_user,
     ):
@@ -123,7 +123,7 @@ class TestScheduleService:
         )
         
         with pytest.raises(ValueError) as exc_info:
-            await service.create_schedule(data, test_organization.id, test_user.id)
+            await service.create_schedule(data, test_workspace.id, test_user.id)
         
         assert "Invalid cron expression" in str(exc_info.value)
     
@@ -131,13 +131,13 @@ class TestScheduleService:
     async def test_get_schedule(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
         test_schedule: Schedule,
     ):
         """Test getting a schedule by ID."""
         service = ScheduleService(db_session)
         
-        schedule = await service.get_schedule(test_schedule.id, test_organization.id)
+        schedule = await service.get_schedule(test_schedule.id, test_workspace.id)
         
         assert schedule is not None
         assert schedule.name == "Nightly Tests"
@@ -146,12 +146,12 @@ class TestScheduleService:
     async def test_get_schedule_not_found(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
     ):
         """Test getting non-existent schedule returns None."""
         service = ScheduleService(db_session)
         
-        schedule = await service.get_schedule(uuid4(), test_organization.id)
+        schedule = await service.get_schedule(uuid4(), test_workspace.id)
         
         assert schedule is None
     
@@ -159,13 +159,13 @@ class TestScheduleService:
     async def test_list_schedules(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
         test_schedule: Schedule,
     ):
         """Test listing schedules."""
         service = ScheduleService(db_session)
         
-        schedules = await service.list_schedules(test_organization.id)
+        schedules = await service.list_schedules(test_workspace.id)
         
         assert len(schedules) >= 1
         assert any(s.id == test_schedule.id for s in schedules)
@@ -174,7 +174,7 @@ class TestScheduleService:
     async def test_list_schedules_filter_by_project(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
         schedule_project: Project,
         test_schedule: Schedule,
     ):
@@ -182,7 +182,7 @@ class TestScheduleService:
         service = ScheduleService(db_session)
         
         schedules = await service.list_schedules(
-            test_organization.id,
+            test_workspace.id,
             project_id=schedule_project.id,
         )
         
@@ -193,7 +193,7 @@ class TestScheduleService:
     async def test_update_schedule(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
         test_schedule: Schedule,
     ):
         """Test updating a schedule."""
@@ -205,7 +205,7 @@ class TestScheduleService:
         )
         
         updated = await service.update_schedule(
-            test_schedule.id, test_organization.id, update_data
+            test_schedule.id, test_workspace.id, update_data
         )
         await db_session.commit()
         
@@ -217,26 +217,26 @@ class TestScheduleService:
     async def test_delete_schedule(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
         test_schedule: Schedule,
     ):
         """Test soft deleting a schedule."""
         service = ScheduleService(db_session)
         
-        success = await service.delete_schedule(test_schedule.id, test_organization.id)
+        success = await service.delete_schedule(test_schedule.id, test_workspace.id)
         await db_session.commit()
         
         assert success is True
         
         # Should not be retrievable after deletion
-        schedule = await service.get_schedule(test_schedule.id, test_organization.id)
+        schedule = await service.get_schedule(test_schedule.id, test_workspace.id)
         assert schedule is None
     
     @pytest.mark.asyncio
     async def test_get_due_schedules(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
         schedule_project: Project,
         test_user,
     ):
@@ -244,7 +244,7 @@ class TestScheduleService:
         # Create a schedule that's past due
         due_schedule = Schedule(
             id=uuid4(),
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             project_id=schedule_project.id,
             name="Overdue Schedule",
             cron_expression="0 * * * *",
@@ -256,7 +256,7 @@ class TestScheduleService:
         # Create a schedule that's not due yet
         future_schedule = Schedule(
             id=uuid4(),
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             project_id=schedule_project.id,
             name="Future Schedule",
             cron_expression="0 * * * *",
@@ -280,7 +280,7 @@ class TestScheduleService:
     async def test_toggle_schedule(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
         test_schedule: Schedule,
     ):
         """Test toggling schedule active status."""
@@ -288,7 +288,7 @@ class TestScheduleService:
         
         # Deactivate
         schedule = await service.toggle_schedule(
-            test_schedule.id, test_organization.id, is_active=False
+            test_schedule.id, test_workspace.id, is_active=False
         )
         await db_session.commit()
         
@@ -297,7 +297,7 @@ class TestScheduleService:
         
         # Reactivate
         schedule = await service.toggle_schedule(
-            test_schedule.id, test_organization.id, is_active=True
+            test_schedule.id, test_workspace.id, is_active=True
         )
         await db_session.commit()
         
@@ -507,3 +507,6 @@ class TestScheduleTask:
         schedule = celery_app.conf.beat_schedule["process-schedules"]
         assert schedule["task"] == "tasks.process_due_schedules"
         assert schedule["schedule"] == 60  # Every minute
+
+
+

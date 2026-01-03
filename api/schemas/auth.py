@@ -16,3 +16,6 @@ class AuthTokenResponse(BaseModel):
     token_type: str = "bearer"
     
     model_config = {"extra": "forbid"}
+
+
+

@@ -14,7 +14,7 @@ class ProjectRepository(BaseRepository[Project]):
         super().__init__(db, Project)
     
     async def get_by_id_and_org(
-        self, project_id: UUID, organization_id: UUID
+        self, project_id: UUID, workspace_id: UUID
     ) -> Project | None:
         """Get project by ID and organization (secure access)."""
         result = await self.db.execute(
@@ -22,7 +22,7 @@ class ProjectRepository(BaseRepository[Project]):
             .where(
                 and_(
                     Project.id == project_id,
-                    Project.organization_id == organization_id,
+                    Project.workspace_id == workspace_id,
                     Project.deleted_at.is_(None),
                 )
             )
@@ -30,14 +30,14 @@ class ProjectRepository(BaseRepository[Project]):
         return result.scalar_one_or_none()
     
     async def get_by_organization_and_name(
-        self, organization_id: UUID, name: str
+        self, workspace_id: UUID, name: str
     ) -> Project | None:
         """Get project by organization and name."""
         result = await self.db.execute(
             select(Project)
             .where(
                 and_(
-                    Project.organization_id == organization_id,
+                    Project.workspace_id == workspace_id,
                     Project.name == name,
                     Project.deleted_at.is_(None),
                 )
@@ -47,7 +47,7 @@ class ProjectRepository(BaseRepository[Project]):
     
     async def list_by_organization(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
         tags: list[str] | None = None,
@@ -55,7 +55,7 @@ class ProjectRepository(BaseRepository[Project]):
         """List projects for an organization."""
         query = select(Project).where(
             and_(
-                Project.organization_id == organization_id,
+                Project.workspace_id == workspace_id,
                 Project.deleted_at.is_(None),
             )
         )
@@ -123,3 +123,6 @@ class ProjectRepository(BaseRepository[Project]):
         await self.db.refresh(project)
         
         return project
+
+
+

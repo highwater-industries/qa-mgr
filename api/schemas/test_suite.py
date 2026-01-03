@@ -42,7 +42,7 @@ class TestSuiteResponse(BaseModel):
     """Basic response schema for test suite."""
     
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     project_id: UUID
     parent_id: UUID | None
     name: str
@@ -66,3 +66,6 @@ class TestSuiteTreeNode(TestSuiteResponse):
     """Tree node response schema for test suite hierarchy."""
     
     children: list["TestSuiteTreeNode"] = []
+
+
+

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
-from api.dependencies import get_current_organization
+from api.dependencies import get_current_workspace
 from api.services.test_suite import TestSuiteService
 from api.schemas.test_suite import (
     TestSuiteCreateRequest,
@@ -29,13 +29,13 @@ router = APIRouter(prefix="/test-suites", tags=["test-suites"])
 async def create_test_suite(
     data: TestSuiteCreateRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Create a new test suite."""
     service = TestSuiteService(session)
     
     try:
-        suite = await service.create_suite(data, organization_id)
+        suite = await service.create_suite(data, workspace_id)
         await session.commit()
         await session.refresh(suite)
         return suite
@@ -53,7 +53,7 @@ async def create_test_suite(
 async def list_test_suites(
     project_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
     parent_id: UUID | None = Query(None),
     tags: list[str] | None = Query(None, description="Filter by tags (returns suites with ANY of these tags)"),
 ):
@@ -61,7 +61,7 @@ async def list_test_suites(
     service = TestSuiteService(session)
     
     try:
-        suites = await service.list_suites(project_id, organization_id, parent_id, tags)
+        suites = await service.list_suites(project_id, workspace_id, parent_id, tags)
         return suites
     except ValueError as e:
         raise HTTPException(
@@ -77,11 +77,11 @@ async def list_test_suites(
 async def get_test_suite(
     suite_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Get a test suite by ID with detailed information."""
     service = TestSuiteService(session)
-    suite = await service.get_suite_detail(suite_id, organization_id)
+    suite = await service.get_suite_detail(suite_id, workspace_id)
     
     if not suite:
         raise HTTPException(
@@ -99,11 +99,11 @@ async def get_test_suite(
 async def get_test_suite_tree(
     suite_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Get a test suite with its full child hierarchy."""
     service = TestSuiteService(session)
-    tree = await service.get_suite_tree(suite_id, organization_id)
+    tree = await service.get_suite_tree(suite_id, workspace_id)
     
     if not tree:
         raise HTTPException(
@@ -122,13 +122,13 @@ async def update_test_suite(
     suite_id: UUID,
     data: TestSuiteUpdateRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Update a test suite."""
     service = TestSuiteService(session)
     
     try:
-        suite = await service.update_suite(suite_id, data, organization_id)
+        suite = await service.update_suite(suite_id, data, workspace_id)
         if not suite:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -152,13 +152,13 @@ async def update_test_suite(
 async def delete_test_suite(
     suite_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Delete a test suite (soft delete)."""
     service = TestSuiteService(session)
     
     try:
-        deleted = await service.delete_suite(suite_id, organization_id)
+        deleted = await service.delete_suite(suite_id, workspace_id)
         if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -171,3 +171,6 @@ async def delete_test_suite(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+
+
+

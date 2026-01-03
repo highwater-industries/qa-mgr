@@ -297,3 +297,5 @@ class TestRunner:
                         logger.info(f"Cleaned up old result directory: {path}")
                 except Exception as e:
                     logger.warning(f"Failed to clean up {path}: {e}")
+
+

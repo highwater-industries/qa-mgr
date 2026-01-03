@@ -85,9 +85,9 @@ class TestCase(TenantBaseModel, table=True):
     results: list["TestResult"] = Relationship(back_populates="test_case")
     
     __table_args__ = (
-        Index("idx_test_case_organization_test_id", "organization_id", "test_id"),
+        Index("idx_test_case_organization_test_id", "workspace_id", "test_id"),
         Index("idx_test_case_suite", "suite_id"),
-        Index("idx_test_case_active", "organization_id", "is_active"),
+        Index("idx_test_case_active", "workspace_id", "is_active"),
     )
 
 
@@ -209,10 +209,10 @@ class TestRun(TenantBaseModel, table=True):
     )
     
     __table_args__ = (
-        Index("idx_test_run_organization_created", "organization_id", "created_at"),
-        Index("idx_test_run_organization_status", "organization_id", "status"),
+        Index("idx_test_run_organization_created", "workspace_id", "created_at"),
+        Index("idx_test_run_organization_status", "workspace_id", "status"),
         Index("idx_test_run_worker_status", "worker_id", "status"),
-        Index("idx_test_run_release", "organization_id", "release_id"),
+        Index("idx_test_run_release", "workspace_id", "release_id"),
     )
 
 
@@ -296,8 +296,8 @@ class TestResult(TenantBaseModel, table=True):
     
     __table_args__ = (
         Index("idx_test_result_run_status", "test_run_id", "status"),
-        Index("idx_test_result_organization_case", "organization_id", "test_case_id"),
-        Index("idx_test_result_organization_run", "organization_id", "test_run_id"),
+        Index("idx_test_result_organization_case", "workspace_id", "test_case_id"),
+        Index("idx_test_result_organization_run", "workspace_id", "test_run_id"),
     )
 
 
@@ -315,7 +315,7 @@ class TestCaseBase(SQLModel):
 class TestCasePublic(TestCaseBase):
     """Public response schema for TestCase."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     suite_id: UUID
     line_number: int | None
     description: str | None
@@ -366,7 +366,7 @@ class TestRunUpdate(SQLModel):
 class TestRunPublic(TestRunBase):
     """Public response schema for TestRun."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     run_number: int
     status: str
     trigger_type: str
@@ -448,9 +448,9 @@ class TestResultDetail(TestResultPublic):
 """
 # Creating a test run
 test_run = TestRun(
-    organization_id=current_organization_id,
+    organization_id=current_workspace_id,
     name="Nightly Regression",
-    run_number=get_next_run_number(organization_id),
+    run_number=get_next_run_number(workspace_id),
     project_id=project_id,
     suite_id=suite_id,
     trigger_type=TRIGGER_SCHEDULED,
@@ -459,7 +459,7 @@ test_run = TestRun(
 
 # Recording a test result (streaming model)
 test_result = TestResult(
-    organization_id=current_organization_id,
+    organization_id=current_workspace_id,
     test_run_id=test_run.id,
     test_id="tests/test_api.py::test_login",
     test_name="test_login",
@@ -470,4 +470,6 @@ test_result = TestResult(
     completed_at=datetime.utcnow(),
 )
 """
+
+
 

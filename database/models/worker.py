@@ -97,10 +97,10 @@ class TestWorker(TenantBaseModel, table=True):
     template: Optional["WorkerTemplate"] = Relationship(back_populates="workers")
     
     __table_args__ = (
-        Index("idx_worker_organization_status", "organization_id", "status"),
-        Index("idx_worker_organization_type", "organization_id", "worker_type"),
+        Index("idx_worker_organization_status", "workspace_id", "status"),
+        Index("idx_worker_organization_type", "workspace_id", "worker_type"),
         Index("idx_worker_heartbeat", "last_heartbeat_at"),
-        Index("idx_worker_available", "organization_id", "is_available", "status"),
+        Index("idx_worker_available", "workspace_id", "is_available", "status"),
     )
 
 
@@ -159,8 +159,8 @@ class WorkerTemplate(TenantBaseModel, table=True):
     workers: list[TestWorker] = Relationship(back_populates="template")
     
     __table_args__ = (
-        Index("idx_template_organization_type", "organization_id", "worker_type"),
-        Index("idx_template_active", "organization_id", "is_active"),
+        Index("idx_template_organization_type", "workspace_id", "worker_type"),
+        Index("idx_template_active", "workspace_id", "is_active"),
     )
 
 
@@ -223,8 +223,8 @@ class Schedule(TenantBaseModel, table=True):
     test_runs: list["TestRun"] = Relationship(back_populates="schedule")  # type: ignore
     
     __table_args__ = (
-        Index("idx_schedule_organization_project", "organization_id", "project_id"),
-        Index("idx_schedule_active", "organization_id", "is_active"),
+        Index("idx_schedule_organization_project", "workspace_id", "project_id"),
+        Index("idx_schedule_active", "workspace_id", "is_active"),
     )
 
 
@@ -268,7 +268,7 @@ class TestWorkerHeartbeat(SQLModel):
 class TestWorkerPublic(TestWorkerBase):
     """Public response schema for TestWorker."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     status: str
     is_available: bool
     os: str | None
@@ -314,7 +314,7 @@ class WorkerTemplateCreate(WorkerTemplateBase):
 class WorkerTemplatePublic(WorkerTemplateBase):
     """Public response schema for WorkerTemplate."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     description: str | None
     default_tags: list[str]
     default_capabilities: dict
@@ -369,7 +369,7 @@ class ScheduleUpdate(SQLModel):
 class SchedulePublic(ScheduleBase):
     """Public response schema for Schedule."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     project_id: UUID
     suite_id: UUID | None
     description: str | None
@@ -397,7 +397,7 @@ class ScheduleDetail(SchedulePublic):
 """
 # Registering a worker
 worker = TestWorker(
-    organization_id=current_organization_id,
+    organization_id=current_workspace_id,
     name="celery-worker-01",
     worker_type=WORKER_TYPE_CELERY,
     os="Ubuntu 22.04",
@@ -413,7 +413,7 @@ worker = TestWorker(
 
 # Creating a schedule
 schedule = Schedule(
-    organization_id=current_organization_id,
+    organization_id=current_workspace_id,
     project_id=project_id,
     name="Nightly Regression",
     cron_expression="0 2 * * *",  # 2 AM daily
@@ -423,4 +423,6 @@ schedule = Schedule(
     created_by=current_user_id,
 )
 """
+
+
 

@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
-from api.routes import auth, organizations, users
+from api.routes import auth, workspaces, users
 from api.routes import projects
 from api.routes import test_suites, test_cases, test_runs, test_catalog
 from api.routes import webhooks, workers, jobs, schedules, notifications
@@ -44,7 +44,7 @@ app.add_middleware(
 
 # Routes - Start with auth and organizations, add more as implemented
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(organizations.router, prefix="/api/v1/organizations", tags=["organizations"])
+app.include_router(workspaces.router, prefix="/api/v1/workspaces", tags=["workspaces"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 
 # Project routes - uses current user's organization context
@@ -79,4 +79,6 @@ app.include_router(notifications.router, prefix="/api/v1")
 async def root():
     """Root endpoint."""
     return {"message": "QA Manager API", "version": "1.0.0"}
+
+
 

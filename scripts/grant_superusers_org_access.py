@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import AsyncSessionLocal
 from database.models.user import User
-from database.models.organization import Organization, UserOrganizationRole
+from database.models.workspace import Workspace, UserWorkspaceRole
 
 
 async def grant_superusers_org_access():
@@ -46,7 +46,7 @@ async def grant_superusers_org_access():
         
         # Get all organizations
         result = await db.execute(
-            select(Organization).where(Organization.deleted_at.is_(None))
+            select(Workspace).where(Organization.deleted_at.is_(None))
         )
         organizations = list(result.scalars().all())
         
@@ -66,10 +66,10 @@ async def grant_superusers_org_access():
             for org in organizations:
                 # Check if role already exists
                 result = await db.execute(
-                    select(UserOrganizationRole).where(
+                    select(UserWorkspaceRole).where(
                         and_(
-                            UserOrganizationRole.user_id == superuser.id,
-                            UserOrganizationRole.organization_id == org.id,
+                            UserWorkspaceRole.user_id == superuser.id,
+                            UserWorkspaceRole.workspace_id == org.id,
                         )
                     )
                 )
@@ -87,7 +87,7 @@ async def grant_superusers_org_access():
                         grants_skipped += 1
                 else:
                     # Create new role
-                    role = UserOrganizationRole(
+                    role = UserWorkspaceRole(
                         user_id=superuser.id,
                         organization_id=org.id,
                         role="admin",
@@ -106,3 +106,5 @@ async def grant_superusers_org_access():
 if __name__ == "__main__":
     print("Granting superusers admin access to all organizations...\n")
     asyncio.run(grant_superusers_org_access())
+
+

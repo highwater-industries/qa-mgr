@@ -32,14 +32,14 @@ class JobService:
     async def get_job_status(
         self,
         test_run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> dict[str, Any] | None:
         """
         Get the status of a job for a test run.
         
         Args:
             test_run_id: ID of the test run
-            organization_id: Organization ID for access control
+            workspace_id: Organization ID for access control
             
         Returns:
             dict with job status details, or None if not found
@@ -47,7 +47,7 @@ class JobService:
         # Get test run
         statement = select(TestRun).where(
             TestRun.id == test_run_id,
-            TestRun.organization_id == organization_id,
+            TestRun.workspace_id == workspace_id,
             TestRun.deleted_at.is_(None),
         )
         result = await self.session.execute(statement)
@@ -108,14 +108,14 @@ class JobService:
     async def cancel_job(
         self,
         test_run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> dict[str, Any] | None:
         """
         Cancel a running or queued job.
         
         Args:
             test_run_id: ID of the test run
-            organization_id: Organization ID for access control
+            workspace_id: Organization ID for access control
             
         Returns:
             dict with cancellation result, or None if not found
@@ -123,7 +123,7 @@ class JobService:
         # Get test run
         statement = select(TestRun).where(
             TestRun.id == test_run_id,
-            TestRun.organization_id == organization_id,
+            TestRun.workspace_id == workspace_id,
             TestRun.deleted_at.is_(None),
         )
         result = await self.session.execute(statement)
@@ -187,14 +187,14 @@ class JobService:
     async def retry_job(
         self,
         test_run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> dict[str, Any] | None:
         """
         Retry a failed or cancelled job.
         
         Args:
             test_run_id: ID of the test run
-            organization_id: Organization ID for access control
+            workspace_id: Organization ID for access control
             
         Returns:
             dict with retry result, or None if not found
@@ -205,7 +205,7 @@ class JobService:
         # Get test run
         statement = select(TestRun).where(
             TestRun.id == test_run_id,
-            TestRun.organization_id == organization_id,
+            TestRun.workspace_id == workspace_id,
             TestRun.deleted_at.is_(None),
         )
         result = await self.session.execute(statement)
@@ -223,7 +223,7 @@ class JobService:
             }
         
         # Find an available worker
-        workers = await self.worker_repo.get_available_workers(organization_id)
+        workers = await self.worker_repo.get_available_workers(workspace_id)
         
         if not workers:
             # Reset to queued status for later execution
@@ -272,3 +272,6 @@ class JobService:
             "worker_id": str(worker.id),
             "status": "queued",
         }
+
+
+

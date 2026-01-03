@@ -28,8 +28,8 @@ class BaseModel(SQLModel):
         from_attributes = True
 
 class TenantBaseModel(BaseModel):
-    """Base model for organization-scoped tables."""
-    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    """Base model for workspace-scoped tables."""
+    workspace_id: UUID = Field(foreign_key="workspaces.id", index=True)
 
 
 # Role constants
@@ -102,4 +102,6 @@ def ensure_utc(dt: datetime | None) -> datetime | None:
 def now_utc() -> datetime:
     """Get current UTC datetime."""
     return datetime.now(timezone.utc)
+
+
 

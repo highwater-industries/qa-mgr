@@ -24,7 +24,7 @@ class TestCatalogService:
     
     async def search_tests(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         project_id: UUID | None = None,
         suite_id: UUID | None = None,
         search: str | None = None,
@@ -41,7 +41,7 @@ class TestCatalogService:
     ) -> tuple[list[TestCatalogListItem], int]:
         """Search and filter tests with statistics."""
         tests, total = await self.repo.search_tests(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             project_id=project_id,
             suite_id=suite_id,
             search=search,
@@ -63,7 +63,7 @@ class TestCatalogService:
             # Get execution summary for this test
             exec_summary = await self.repo.get_execution_summary(
                 test.id,
-                organization_id,
+                workspace_id,
             )
             
             items.append(TestCatalogListItem(
@@ -87,10 +87,10 @@ class TestCatalogService:
     async def get_test_detail(
         self,
         test_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestCatalogDetail | None:
         """Get detailed test information with navigation helpers."""
-        test = await self.repo.get_test_detail(test_id, organization_id)
+        test = await self.repo.get_test_detail(test_id, workspace_id)
         if not test:
             return None
         
@@ -123,7 +123,7 @@ class TestCatalogService:
         
         return TestCatalogDetail(
             id=test.id,
-            organization_id=test.organization_id,
+            workspace_id=test.workspace_id,
             suite_id=test.suite_id,
             test_id=test.test_id,
             name=test.name,
@@ -154,13 +154,13 @@ class TestCatalogService:
     async def get_execution_history(
         self,
         test_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         limit: int = 50,
     ) -> list[TestExecutionHistoryItem]:
         """Get execution history for a test."""
         results = await self.repo.get_execution_history(
             test_id,
-            organization_id,
+            workspace_id,
             limit,
         )
         
@@ -191,13 +191,16 @@ class TestCatalogService:
     
     async def get_statistics(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         project_id: UUID | None = None,
     ) -> TestCatalogStatistics:
         """Get catalog-wide statistics."""
         stats = await self.repo.get_catalog_statistics(
-            organization_id,
+            workspace_id,
             project_id,
         )
         
         return TestCatalogStatistics(**stats)
+
+
+

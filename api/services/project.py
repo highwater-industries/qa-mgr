@@ -15,13 +15,13 @@ class ProjectService:
     
     async def create_project(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         project_data: ProjectCreateRequest,
     ) -> Project:
         """Create new project."""
         # Check name uniqueness within organization
         existing = await self.repo.get_by_organization_and_name(
-            organization_id, project_data.name
+            workspace_id, project_data.name
         )
         if existing:
             raise HTTPException(
@@ -31,7 +31,7 @@ class ProjectService:
         
         # Create project
         project = Project(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             name=project_data.name,
             description=project_data.description,
             repository_url=project_data.repository_url,
@@ -66,14 +66,14 @@ class ProjectService:
     
     async def list_projects(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
         tags: list[str] | None = None,
     ) -> list[Project]:
         """List projects for an organization."""
         projects = await self.repo.list_by_organization(
-            organization_id, skip, limit, tags
+            workspace_id, skip, limit, tags
         )
         
         # Return projects without stats for list view
@@ -91,7 +91,7 @@ class ProjectService:
         # Check name uniqueness if changing
         if project_data.name and project_data.name != project.name:
             existing = await self.repo.get_by_organization_and_name(
-                project.organization_id, project_data.name
+                project.workspace_id, project_data.name
             )
             if existing:
                 raise HTTPException(
@@ -127,3 +127,6 @@ class ProjectService:
         """Delete project (soft delete)."""
         project = await self.get_project(project_id, with_stats=False)
         await self.repo.delete(project_id)
+
+
+

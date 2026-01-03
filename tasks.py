@@ -247,14 +247,14 @@ def process_due_schedules() -> dict:
                 try:
                     # Get next run number
                     max_stmt = select(func.max(TestRun.run_number)).where(
-                        TestRun.organization_id == schedule.organization_id
+                        TestRun.workspace_id == schedule.workspace_id
                     )
                     max_number = session.exec(max_stmt).one_or_none() or 0
                     run_number = max_number + 1
                     
                     # Create test run
                     test_run = TestRun(
-                        organization_id=schedule.organization_id,
+                        organization_id=schedule.workspace_id,
                         project_id=schedule.project_id,
                         suite_id=schedule.suite_id,
                         schedule_id=schedule.id,
@@ -321,3 +321,5 @@ def process_due_schedules() -> dict:
         logger.error(f"Error processing schedules: {e}")
         raise
         raise
+
+

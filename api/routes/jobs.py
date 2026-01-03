@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
-from api.dependencies import get_current_organization
+from api.dependencies import get_current_workspace
 from api.services.job import JobService
 from api.schemas.job import (
     JobStatusResponse,
@@ -28,12 +28,12 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 async def get_job_status(
     run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Get the status of a job for a test run."""
     service = JobService(session)
     
-    result = await service.get_job_status(run_id, organization_id)
+    result = await service.get_job_status(run_id, workspace_id)
     
     if not result:
         raise HTTPException(
@@ -53,12 +53,12 @@ async def get_job_status(
 async def cancel_job(
     run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Cancel a test run job."""
     service = JobService(session)
     
-    result = await service.cancel_job(run_id, organization_id)
+    result = await service.cancel_job(run_id, workspace_id)
     
     if not result:
         raise HTTPException(
@@ -78,12 +78,12 @@ async def cancel_job(
 async def retry_job(
     run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Retry a failed test run job."""
     service = JobService(session)
     
-    result = await service.retry_job(run_id, organization_id)
+    result = await service.retry_job(run_id, workspace_id)
     
     if not result:
         raise HTTPException(
@@ -92,3 +92,6 @@ async def retry_job(
         )
     
     return JobRetryResponse(**result)
+
+
+

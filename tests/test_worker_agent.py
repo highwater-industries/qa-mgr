@@ -77,7 +77,7 @@ class TestAPIClient:
     
     def test_headers_without_auth(self):
         """Test headers without API key."""
-        config = WorkerConfig(api_key="", organization_id="")
+        config = WorkerConfig(api_key="", workspace_id="")
         client = APIClient(config)
         
         headers = client._get_headers()
@@ -88,20 +88,20 @@ class TestAPIClient:
         """Test headers with API key and org ID."""
         config = WorkerConfig(
             api_key="test-key",
-            organization_id="test-org",
+            workspace_id="test-org",
         )
         client = APIClient(config)
         
         headers = client._get_headers()
         assert headers["X-API-Key"] == "test-key"
-        assert headers["X-Organization-ID"] == "test-org"
+        assert headers["X-Workspace-ID"] == "test-org"
     
     @pytest.mark.asyncio
     async def test_register_success(self):
         """Test successful registration."""
         config = WorkerConfig(
             api_base_url="http://test-api",
-            organization_id="test-org",
+            workspace_id="test-org",
         )
         client = APIClient(config)
         
@@ -329,3 +329,6 @@ class TestExecutionResult:
         assert result.stdout == ""
         assert result.stderr == ""
         assert result.error_message is None
+
+
+

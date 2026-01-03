@@ -59,3 +59,6 @@ class BaseRepository(Generic[ModelType]):
             select(func.count(self.model.id))
         )
         return result.scalar_one()
+
+
+

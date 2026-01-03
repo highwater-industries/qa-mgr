@@ -7,7 +7,7 @@ from httpx import AsyncClient
 async def test_create_organization(client: AsyncClient, admin_headers):
     """Test creating a new organization."""
     response = await client.post(
-        "/api/v1/organizations",
+        "/api/v1/workspaces",
         json={
             "name": "New Organization",
             "slug": "new-org",
@@ -22,9 +22,9 @@ async def test_create_organization(client: AsyncClient, admin_headers):
 
 
 @pytest.mark.asyncio
-async def test_list_organizations(client: AsyncClient, auth_headers, test_organization):
+async def test_list_organizations(client: AsyncClient, auth_headers, test_workspace):
     """Test listing organizations."""
-    response = await client.get("/api/v1/organizations", headers=auth_headers)
+    response = await client.get("/api/v1/workspaces", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
@@ -32,23 +32,23 @@ async def test_list_organizations(client: AsyncClient, auth_headers, test_organi
 
 
 @pytest.mark.asyncio
-async def test_get_organization_details(client: AsyncClient, auth_headers, test_organization):
+async def test_get_organization_details(client: AsyncClient, auth_headers, test_workspace):
     """Test getting organization details."""
     response = await client.get(
-        f"/api/v1/organizations/{test_organization.id}",
+        f"/api/v1/workspaces/{test_workspace.id}",
         headers=auth_headers,
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["name"] == "Test Organization"
-    assert data["slug"] == "test-org"
+    assert data["name"] == "Test Workspace"
+    assert data["slug"] == "test-workspace"
 
 
 @pytest.mark.asyncio
-async def test_update_organization(client: AsyncClient, admin_headers, test_organization):
+async def test_update_organization(client: AsyncClient, admin_headers, test_workspace):
     """Test updating organization."""
     response = await client.put(
-        f"/api/v1/organizations/{test_organization.id}",
+        f"/api/v1/workspaces/{test_workspace.id}",
         json={
             "name": "Updated Organization",
             "slug": "test-org",
@@ -66,9 +66,9 @@ async def test_update_organization(client: AsyncClient, admin_headers, test_orga
 async def test_delete_organization(client: AsyncClient, admin_headers, db_session):
     """Test deleting (soft delete) organization."""
     # Create a new organization to delete
-    from database.models import Organization
+    from database.models import Workspace
     
-    org = Organization(
+    org = Workspace(
         name="To Delete",
         slug="to-delete",
         description="Will be deleted",
@@ -79,7 +79,7 @@ async def test_delete_organization(client: AsyncClient, admin_headers, db_sessio
     await db_session.refresh(org)
     
     response = await client.delete(
-        f"/api/v1/organizations/{org.id}",
+        f"/api/v1/workspaces/{org.id}",
         headers=admin_headers,
     )
     assert response.status_code == 204
@@ -89,7 +89,7 @@ async def test_delete_organization(client: AsyncClient, admin_headers, db_sessio
 async def test_non_admin_cannot_create_organization(client: AsyncClient, auth_headers):
     """Test that non-admin users cannot create organizations."""
     response = await client.post(
-        "/api/v1/organizations",
+        "/api/v1/workspaces",
         json={
             "name": "Unauthorized Org",
             "slug": "unauthorized",
@@ -99,3 +99,6 @@ async def test_non_admin_cannot_create_organization(client: AsyncClient, auth_he
     )
     # Should be forbidden (403) or not found (404) depending on route protection
     assert response.status_code in [403, 404]
+
+
+

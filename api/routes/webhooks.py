@@ -31,7 +31,7 @@ async def verify_webhook_auth(
         token = authorization.replace("Bearer ", "")
         try:
             user: User = await get_current_user_from_token(token, db)
-            return user.current_organization_id
+            return user.current_workspace_id
         except HTTPException:
             pass
     
@@ -49,7 +49,7 @@ async def verify_webhook_auth(
         )
         project = result.scalar_one_or_none()
         if project:
-            return project.organization_id
+            return project.workspace_id
         
         # Invalid webhook secret
         raise HTTPException(
@@ -67,7 +67,7 @@ async def verify_webhook_auth(
 async def receive_jenkins_results(
     request: JenkinsResultsWebhookRequest,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(verify_webhook_auth),
+    workspace_id: UUID = Depends(verify_webhook_auth),
 ):
     """
     Receive test results from Jenkins CI.
@@ -87,7 +87,7 @@ async def receive_jenkins_results(
     try:
         test_run, results_created = await service.process_jenkins_results(
             request,
-            organization_id,
+            workspace_id,
         )
         
         return WebhookResponse(
@@ -101,3 +101,6 @@ async def receive_jenkins_results(
             status_code=500,
             detail=f"Failed to process webhook: {str(e)}",
         )
+
+
+

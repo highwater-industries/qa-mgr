@@ -16,7 +16,7 @@ class WorkerRepository:
     
     async def create(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         name: str,
         worker_type: str,
         hostname: str,
@@ -30,7 +30,7 @@ class WorkerRepository:
     ) -> TestWorker:
         """Create a new worker."""
         worker = TestWorker(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             name=name,
             worker_type=worker_type,
             status="idle",
@@ -55,13 +55,13 @@ class WorkerRepository:
     async def get_by_id(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestWorker | None:
         """Get worker by ID."""
         stmt = select(TestWorker).where(
             and_(
                 TestWorker.id == worker_id,
-                TestWorker.organization_id == organization_id,
+                TestWorker.workspace_id == workspace_id,
                 TestWorker.deleted_at.is_(None),
             )
         )
@@ -71,13 +71,13 @@ class WorkerRepository:
     async def get_by_name(
         self,
         name: str,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestWorker | None:
         """Get worker by name."""
         stmt = select(TestWorker).where(
             and_(
                 TestWorker.name == name,
-                TestWorker.organization_id == organization_id,
+                TestWorker.workspace_id == workspace_id,
                 TestWorker.deleted_at.is_(None),
             )
         )
@@ -86,7 +86,7 @@ class WorkerRepository:
     
     async def list_workers(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         status: str | None = None,
         worker_type: str | None = None,
         is_available: bool | None = None,
@@ -97,7 +97,7 @@ class WorkerRepository:
         """List workers with optional filters."""
         stmt = select(TestWorker).where(
             and_(
-                TestWorker.organization_id == organization_id,
+                TestWorker.workspace_id == workspace_id,
                 TestWorker.deleted_at.is_(None),
             )
         )
@@ -124,13 +124,13 @@ class WorkerRepository:
     async def update_heartbeat(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         status: str,
         current_active_runs: int,
         health_metrics: dict | None = None,
     ) -> TestWorker | None:
         """Update worker heartbeat and status."""
-        worker = await self.get_by_id(worker_id, organization_id)
+        worker = await self.get_by_id(worker_id, workspace_id)
         
         if not worker:
             return None
@@ -149,11 +149,11 @@ class WorkerRepository:
     async def update_availability(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         is_available: bool,
     ) -> TestWorker | None:
         """Update worker availability."""
-        worker = await self.get_by_id(worker_id, organization_id)
+        worker = await self.get_by_id(worker_id, workspace_id)
         
         if not worker:
             return None
@@ -166,10 +166,10 @@ class WorkerRepository:
     async def increment_completed_jobs(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestWorker | None:
         """Increment completed jobs counter."""
-        worker = await self.get_by_id(worker_id, organization_id)
+        worker = await self.get_by_id(worker_id, workspace_id)
         
         if not worker:
             return None
@@ -186,10 +186,10 @@ class WorkerRepository:
     async def increment_failed_jobs(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestWorker | None:
         """Increment failed jobs counter."""
-        worker = await self.get_by_id(worker_id, organization_id)
+        worker = await self.get_by_id(worker_id, workspace_id)
         
         if not worker:
             return None
@@ -206,10 +206,10 @@ class WorkerRepository:
     async def delete(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Soft delete worker."""
-        worker = await self.get_by_id(worker_id, organization_id)
+        worker = await self.get_by_id(worker_id, workspace_id)
         
         if not worker:
             return False
@@ -219,14 +219,14 @@ class WorkerRepository:
     
     async def get_available_workers(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         worker_type: str | None = None,
         required_tags: list[str] | None = None,
     ) -> list[TestWorker]:
         """Get available workers for job assignment."""
         stmt = select(TestWorker).where(
             and_(
-                TestWorker.organization_id == organization_id,
+                TestWorker.workspace_id == workspace_id,
                 TestWorker.deleted_at.is_(None),
                 TestWorker.is_available == True,
                 TestWorker.status.in_(["idle", "busy"]),
@@ -248,3 +248,6 @@ class WorkerRepository:
         
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+
+

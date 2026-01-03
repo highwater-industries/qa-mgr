@@ -20,3 +20,5 @@ async def add_tags_column():
 
 if __name__ == "__main__":
     asyncio.run(add_tags_column())
+
+

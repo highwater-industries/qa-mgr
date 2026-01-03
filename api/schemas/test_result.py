@@ -63,7 +63,7 @@ class TestResultResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     test_run_id: UUID
     test_case_id: UUID | None
     test_id: str
@@ -132,3 +132,6 @@ class TestResultSummary(BaseModel):
     total_duration_seconds: float
     avg_duration_seconds: float | None
     slowest_tests: list[TestResultListItem] = []
+
+
+

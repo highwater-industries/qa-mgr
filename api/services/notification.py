@@ -47,12 +47,12 @@ class NotificationService:
     async def create_config(
         self,
         data: NotificationConfigCreate,
-        organization_id: UUID,
+        workspace_id: UUID,
         user_id: UUID,
     ) -> NotificationConfig:
         """Create a new notification configuration."""
         config = NotificationConfig(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             project_id=data.project_id,
             suite_id=data.suite_id,
             name=data.name,
@@ -77,13 +77,13 @@ class NotificationService:
     async def get_config(
         self,
         config_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> NotificationConfig | None:
         """Get a notification config by ID."""
         stmt = select(NotificationConfig).where(
             and_(
                 NotificationConfig.id == config_id,
-                NotificationConfig.organization_id == organization_id,
+                NotificationConfig.workspace_id == workspace_id,
                 NotificationConfig.deleted_at.is_(None),
             )
         )
@@ -92,7 +92,7 @@ class NotificationService:
     
     async def list_configs(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         project_id: UUID | None = None,
         is_active: bool | None = None,
         notification_type: str | None = None,
@@ -101,7 +101,7 @@ class NotificationService:
     ) -> list[NotificationConfig]:
         """List notification configs with optional filtering."""
         conditions = [
-            NotificationConfig.organization_id == organization_id,
+            NotificationConfig.workspace_id == workspace_id,
             NotificationConfig.deleted_at.is_(None),
         ]
         
@@ -127,11 +127,11 @@ class NotificationService:
     async def update_config(
         self,
         config_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         data: NotificationConfigUpdate,
     ) -> NotificationConfig | None:
         """Update a notification config."""
-        config = await self.get_config(config_id, organization_id)
+        config = await self.get_config(config_id, workspace_id)
         if not config:
             return None
         
@@ -150,10 +150,10 @@ class NotificationService:
     async def delete_config(
         self,
         config_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Soft delete a notification config."""
-        config = await self.get_config(config_id, organization_id)
+        config = await self.get_config(config_id, workspace_id)
         if not config:
             return False
         
@@ -195,7 +195,7 @@ class NotificationService:
                 logger.error(f"Error sending notification {config.id}: {e}")
                 # Create failed log entry
                 log = NotificationLog(
-                    organization_id=test_run.organization_id,
+                    workspace_id=test_run.workspace_id,
                     notification_config_id=config.id,
                     test_run_id=test_run.id,
                     notification_type=config.notification_type,
@@ -219,7 +219,7 @@ class NotificationService:
     ) -> list[NotificationConfig]:
         """Find notification configs that should be triggered for this test run."""
         conditions = [
-            NotificationConfig.organization_id == test_run.organization_id,
+            NotificationConfig.workspace_id == test_run.workspace_id,
             NotificationConfig.is_active == True,
             NotificationConfig.deleted_at.is_(None),
         ]
@@ -281,7 +281,7 @@ class NotificationService:
     ) -> NotificationLog:
         """Send a notification via the configured method."""
         log = NotificationLog(
-            organization_id=test_run.organization_id,
+            workspace_id=test_run.workspace_id,
             notification_config_id=config.id,
             test_run_id=test_run.id,
             notification_type=config.notification_type,
@@ -610,7 +610,7 @@ class NotificationService:
     
     async def get_logs(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         test_run_id: UUID | None = None,
         config_id: UUID | None = None,
         status: str | None = None,
@@ -619,7 +619,7 @@ class NotificationService:
     ) -> list[NotificationLog]:
         """Get notification logs with optional filtering."""
         conditions = [
-            NotificationLog.organization_id == organization_id,
+            NotificationLog.workspace_id == workspace_id,
         ]
         
         if test_run_id:
@@ -640,3 +640,6 @@ class NotificationService:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+
+

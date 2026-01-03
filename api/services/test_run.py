@@ -32,7 +32,7 @@ class TestRunService:
     async def create_run(
         self,
         data: TestRunCreateRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
         triggered_by: UUID | None = None,
         trigger_type: str = "manual",
     ) -> TestRun:
@@ -41,7 +41,7 @@ class TestRunService:
         if data.project_id:
             project = await self.project_repository.get_by_id_and_org(
                 data.project_id,
-                organization_id,
+                workspace_id,
             )
             if not project:
                 raise ValueError("Project not found")
@@ -50,16 +50,16 @@ class TestRunService:
         if data.suite_id:
             suite = await self.suite_repository.get_by_id_and_org(
                 data.suite_id,
-                organization_id,
+                workspace_id,
             )
             if not suite:
                 raise ValueError("Test suite not found")
         
         # Get next run number
-        run_number = await self.repository.get_next_run_number(organization_id)
+        run_number = await self.repository.get_next_run_number(workspace_id)
         
         run = TestRun(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             run_number=run_number,
             trigger_type=trigger_type,
             triggered_by=triggered_by,
@@ -73,7 +73,7 @@ class TestRunService:
         
         # Find an available worker
         available_workers = await self.worker_repository.get_available_workers(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
         )
         
         if not available_workers:
@@ -90,7 +90,7 @@ class TestRunService:
         run.celery_task_id = task.id
         await self.repository.update_by_id_and_org(
             run_id=run.id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             celery_task_id=task.id,
         )
         
@@ -99,22 +99,22 @@ class TestRunService:
     async def get_run(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestRun | None:
         """Get a test run by ID."""
-        return await self.repository.get_by_id_and_org(run_id, organization_id)
+        return await self.repository.get_by_id_and_org(run_id, workspace_id)
     
     async def get_run_by_number(
         self,
         run_number: int,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestRun | None:
         """Get a test run by run number."""
-        return await self.repository.get_by_run_number(run_number, organization_id)
+        return await self.repository.get_by_run_number(run_number, workspace_id)
     
     async def list_runs(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
         project_id: UUID | None = None,
@@ -123,7 +123,7 @@ class TestRunService:
     ) -> list[TestRun]:
         """List test runs for an organization."""
         return await self.repository.list_by_organization(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             skip=skip,
             limit=limit,
             project_id=project_id,
@@ -134,32 +134,32 @@ class TestRunService:
     async def update_run(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         data: TestRunUpdateRequest,
     ) -> TestRun | None:
         """Update a test run."""
         update_data = data.model_dump(exclude_unset=True, exclude_none=True)
         if not update_data:
-            return await self.get_run(run_id, organization_id)
+            return await self.get_run(run_id, workspace_id)
         
         return await self.repository.update_by_id_and_org(
             run_id=run_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             **update_data,
         )
     
     async def delete_run(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Delete a test run (soft delete)."""
-        return await self.repository.delete_by_id_and_org(run_id, organization_id)
+        return await self.repository.delete_by_id_and_org(run_id, workspace_id)
     
     async def start_run(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         data: TestRunStartRequest | None = None,
     ) -> TestRun | None:
         """Mark a test run as started."""
@@ -168,7 +168,7 @@ class TestRunService:
         
         return await self.repository.start_run(
             run_id=run_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             worker_id=worker_id,
             total_tests=total_tests,
         )
@@ -176,13 +176,13 @@ class TestRunService:
     async def complete_run(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         data: TestRunCompleteRequest,
     ) -> TestRun | None:
         """Mark a test run as completed."""
         run = await self.repository.complete_run(
             run_id=run_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             status=data.status,
             total_tests=data.total_tests,
             passed_tests=data.passed_tests,
@@ -216,15 +216,15 @@ class TestRunService:
     async def update_aggregates(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestRun | None:
         """Update test run aggregates from results."""
-        return await self.repository.update_aggregates(run_id, organization_id)
+        return await self.repository.update_aggregates(run_id, workspace_id)
     
     async def get_runs_by_project(
         self,
         project_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
     ) -> list[TestRun]:
@@ -232,14 +232,14 @@ class TestRunService:
         # Verify project exists
         project = await self.project_repository.get_by_id_and_org(
             project_id,
-            organization_id,
+            workspace_id,
         )
         if not project:
             raise ValueError("Project not found")
         
         return await self.repository.get_by_project(
             project_id=project_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             skip=skip,
             limit=limit,
         )
@@ -247,7 +247,7 @@ class TestRunService:
     async def get_runs_by_suite(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
     ) -> list[TestRun]:
@@ -255,14 +255,17 @@ class TestRunService:
         # Verify suite exists
         suite = await self.suite_repository.get_by_id_and_org(
             suite_id,
-            organization_id,
+            workspace_id,
         )
         if not suite:
             raise ValueError("Test suite not found")
         
         return await self.repository.get_by_suite(
             suite_id=suite_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             skip=skip,
             limit=limit,
         )
+
+
+

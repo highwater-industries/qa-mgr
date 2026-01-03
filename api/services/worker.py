@@ -18,7 +18,7 @@ class WorkerService:
     async def register_worker(
         self,
         request: WorkerRegisterRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestWorker:
         """
         Register a new worker or update existing worker.
@@ -27,7 +27,7 @@ class WorkerService:
         Otherwise, create a new worker.
         """
         # Check if worker already exists
-        existing = await self.repo.get_by_name(request.name, organization_id)
+        existing = await self.repo.get_by_name(request.name, workspace_id)
         
         if existing:
             # Update existing worker (re-registration)
@@ -55,7 +55,7 @@ class WorkerService:
         
         # Create new worker
         worker = await self.repo.create(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             name=request.name,
             worker_type=request.worker_type,
             hostname=request.hostname,
@@ -74,12 +74,12 @@ class WorkerService:
         self,
         worker_id: UUID,
         request: WorkerHeartbeatRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestWorker | None:
         """Update worker heartbeat."""
         worker = await self.repo.update_heartbeat(
             worker_id=worker_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             status=request.status,
             current_active_runs=request.current_active_runs,
             health_metrics=request.health_metrics,
@@ -90,14 +90,14 @@ class WorkerService:
     async def get_worker(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestWorker | None:
         """Get worker by ID."""
-        return await self.repo.get_by_id(worker_id, organization_id)
+        return await self.repo.get_by_id(worker_id, workspace_id)
     
     async def list_workers(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         status: str | None = None,
         worker_type: str | None = None,
         is_available: bool | None = None,
@@ -107,7 +107,7 @@ class WorkerService:
     ) -> list[TestWorker]:
         """List workers with filters."""
         return await self.repo.list_workers(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             status=status,
             worker_type=worker_type,
             is_available=is_available,
@@ -119,33 +119,36 @@ class WorkerService:
     async def update_availability(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         is_available: bool,
     ) -> TestWorker | None:
         """Update worker availability."""
         return await self.repo.update_availability(
             worker_id=worker_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             is_available=is_available,
         )
     
     async def delete_worker(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Delete worker."""
-        return await self.repo.delete(worker_id, organization_id)
+        return await self.repo.delete(worker_id, workspace_id)
     
     async def get_available_workers(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         worker_type: str | None = None,
         required_tags: list[str] | None = None,
     ) -> list[TestWorker]:
         """Get available workers for job assignment."""
         return await self.repo.get_available_workers(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             worker_type=worker_type,
             required_tags=required_tags,
         )
+
+
+

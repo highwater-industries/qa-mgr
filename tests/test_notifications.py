@@ -26,11 +26,11 @@ def notification_service(db_session):
 
 
 @pytest.fixture
-async def test_run_data(test_organization):
+async def test_run_data(test_workspace):
     """Sample test run for notification testing."""
     return TestRun(
         id=uuid4(),
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         project_id=None,  # Org-level test run
         suite_id=None,
         run_number=42,
@@ -49,9 +49,9 @@ async def test_run_data(test_organization):
 class TestNotificationConfigCRUD:
     """Test notification configuration CRUD operations."""
     
-    async def test_create_notification_config(self, notification_service, test_organization, test_user):
+    async def test_create_notification_config(self, notification_service, test_workspace, test_user):
         """Test creating a notification configuration."""
-        org_id = test_organization.id
+        org_id = test_workspace.id
         user_id = test_user.id
         
         data = NotificationConfigCreate(
@@ -67,14 +67,14 @@ class TestNotificationConfigCRUD:
         
         assert config.name == "Slack Alerts"
         assert config.notification_type == NOTIFICATION_SLACK
-        assert config.organization_id == org_id
+        assert config.workspace_id == org_id
         assert config.created_by == user_id
         assert config.is_active is True
         assert TRIGGER_RUN_COMPLETED in config.trigger_events
     
-    async def test_get_notification_config(self, notification_service, test_organization, test_user):
+    async def test_get_notification_config(self, notification_service, test_workspace, test_user):
         """Test retrieving a notification config."""
-        org_id = test_organization.id
+        org_id = test_workspace.id
         user_id = test_user.id
         
         data = NotificationConfigCreate(
@@ -91,9 +91,9 @@ class TestNotificationConfigCRUD:
         assert retrieved.id == created.id
         assert retrieved.name == "Teams Webhook"
     
-    async def test_list_notification_configs(self, notification_service, test_organization, test_user):
+    async def test_list_notification_configs(self, notification_service, test_workspace, test_user):
         """Test listing notification configs with filters."""
-        org_id = test_organization.id
+        org_id = test_workspace.id
         user_id = test_user.id
         # Don't use project_id since it doesn't exist in DB - test org-wide configs instead
         
@@ -141,9 +141,9 @@ class TestNotificationConfigCRUD:
         assert len(slack_configs) == 1
         assert slack_configs[0].name == "Org-Wide Slack"
     
-    async def test_update_notification_config(self, notification_service, test_organization, test_user):
+    async def test_update_notification_config(self, notification_service, test_workspace, test_user):
         """Test updating a notification configuration."""
-        org_id = test_organization.id
+        org_id = test_workspace.id
         user_id = test_user.id
         
         data = NotificationConfigCreate(
@@ -172,9 +172,9 @@ class TestNotificationConfigCRUD:
         assert TRIGGER_RUN_FAILED in updated.trigger_events
         assert updated.config["webhook_url"] == "https://hooks.slack.com/new"
     
-    async def test_delete_notification_config(self, notification_service, test_organization, test_user):
+    async def test_delete_notification_config(self, notification_service, test_workspace, test_user):
         """Test soft deleting a notification config."""
-        org_id = test_organization.id
+        org_id = test_workspace.id
         user_id = test_user.id
         
         data = NotificationConfigCreate(
@@ -203,7 +203,7 @@ class TestNotificationFiltering:
         from database.models.notification import NotificationConfig
         
         config = NotificationConfig(
-            organization_id=uuid4(),
+            workspace_id=uuid4(),
             name="Test Config",
             notification_type=NOTIFICATION_WEBHOOK,
             trigger_events=[TRIGGER_RUN_FAILED, TRIGGER_RUN_SUCCESS],
@@ -211,7 +211,7 @@ class TestNotificationFiltering:
         )
         
         test_run = MagicMock(
-            organization_id=config.organization_id,
+            workspace_id=config.workspace_id,
             project_id=None,
             test_tags=[],
             branch="main",
@@ -231,7 +231,7 @@ class TestNotificationFiltering:
         from database.models.notification import NotificationConfig
         
         config = NotificationConfig(
-            organization_id=uuid4(),
+            workspace_id=uuid4(),
             name="Test Config",
             notification_type=NOTIFICATION_WEBHOOK,
             trigger_events=[TRIGGER_RUN_COMPLETED],
@@ -241,7 +241,7 @@ class TestNotificationFiltering:
         
         # Test run with matching tag
         test_run_match = MagicMock(
-            organization_id=config.organization_id,
+            workspace_id=config.workspace_id,
             project_id=None,
             test_tags=["smoke", "api"],
             branch="main",
@@ -254,7 +254,7 @@ class TestNotificationFiltering:
         
         # Test run with no matching tags
         test_run_no_match = MagicMock(
-            organization_id=config.organization_id,
+            workspace_id=config.workspace_id,
             project_id=None,
             test_tags=["integration"],
             branch="main",
@@ -267,7 +267,7 @@ class TestNotificationFiltering:
         
         # Test run with no tags
         test_run_no_tags = MagicMock(
-            organization_id=config.organization_id,
+            workspace_id=config.workspace_id,
             project_id=None,
             test_tags=[],
             branch="main",
@@ -283,7 +283,7 @@ class TestNotificationFiltering:
         from database.models.notification import NotificationConfig
         
         config = NotificationConfig(
-            organization_id=uuid4(),
+            workspace_id=uuid4(),
             name="Test Config",
             notification_type=NOTIFICATION_WEBHOOK,
             trigger_events=[TRIGGER_RUN_COMPLETED],
@@ -293,7 +293,7 @@ class TestNotificationFiltering:
         
         # Test run on matching branch
         test_run_match = MagicMock(
-            organization_id=config.organization_id,
+            workspace_id=config.workspace_id,
             project_id=None,
             test_tags=[],
             branch="main",
@@ -306,7 +306,7 @@ class TestNotificationFiltering:
         
         # Test run on non-matching branch
         test_run_no_match = MagicMock(
-            organization_id=config.organization_id,
+            workspace_id=config.workspace_id,
             project_id=None,
             test_tags=[],
             branch="feature/xyz",
@@ -336,7 +336,7 @@ class TestNotificationSending:
         
         config = NotificationConfig(
             id=uuid4(),
-            organization_id=test_run_data.organization_id,
+            workspace_id=test_run_data.workspace_id,
             name="Test Webhook",
             notification_type=NOTIFICATION_WEBHOOK,
             trigger_events=[TRIGGER_RUN_COMPLETED],
@@ -348,7 +348,7 @@ class TestNotificationSending:
         
         payload = notification_service._build_payload(test_run_data, config, TRIGGER_RUN_COMPLETED)
         log = NotificationLog(
-            organization_id=test_run_data.organization_id,
+            workspace_id=test_run_data.workspace_id,
             notification_config_id=config.id,
             test_run_id=test_run_data.id,
             notification_type=NOTIFICATION_WEBHOOK,
@@ -376,7 +376,7 @@ class TestNotificationSending:
         
         config = NotificationConfig(
             id=uuid4(),
-            organization_id=test_run_data.organization_id,
+            workspace_id=test_run_data.workspace_id,
             name="Slack Webhook",
             notification_type=NOTIFICATION_SLACK,
             trigger_events=[TRIGGER_RUN_COMPLETED],
@@ -385,7 +385,7 @@ class TestNotificationSending:
         
         payload = notification_service._build_payload(test_run_data, config, TRIGGER_RUN_COMPLETED)
         log = NotificationLog(
-            organization_id=test_run_data.organization_id,
+            workspace_id=test_run_data.workspace_id,
             notification_config_id=config.id,
             test_run_id=test_run_data.id,
             notification_type=NOTIFICATION_SLACK,
@@ -415,7 +415,7 @@ class TestNotificationSending:
         
         config = NotificationConfig(
             id=uuid4(),
-            organization_id=test_run_data.organization_id,
+            workspace_id=test_run_data.workspace_id,
             name="Teams Webhook",
             notification_type=NOTIFICATION_TEAMS,
             trigger_events=[TRIGGER_RUN_COMPLETED],
@@ -424,7 +424,7 @@ class TestNotificationSending:
         
         payload = notification_service._build_payload(test_run_data, config, TRIGGER_RUN_COMPLETED)
         log = NotificationLog(
-            organization_id=test_run_data.organization_id,
+            workspace_id=test_run_data.workspace_id,
             notification_config_id=config.id,
             test_run_id=test_run_data.id,
             notification_type=NOTIFICATION_TEAMS,
@@ -452,7 +452,7 @@ class TestNotificationSending:
         
         config = NotificationConfig(
             id=uuid4(),
-            organization_id=test_run_data.organization_id,
+            workspace_id=test_run_data.workspace_id,
             name="Discord Webhook",
             notification_type=NOTIFICATION_DISCORD,
             trigger_events=[TRIGGER_RUN_FAILED],
@@ -465,7 +465,7 @@ class TestNotificationSending:
         
         payload = notification_service._build_payload(test_run_data, config, TRIGGER_RUN_FAILED)
         log = NotificationLog(
-            organization_id=test_run_data.organization_id,
+            workspace_id=test_run_data.workspace_id,
             notification_config_id=config.id,
             test_run_id=test_run_data.id,
             notification_type=NOTIFICATION_DISCORD,
@@ -487,7 +487,7 @@ class TestNotificationSending:
         
         test_run = TestRun(
             id=uuid4(),
-            organization_id=uuid4(),
+            workspace_id=uuid4(),
             project_id=uuid4(),
             run_number=100,
             name="Smoke Tests",
@@ -501,7 +501,7 @@ class TestNotificationSending:
         )
         
         config = NotificationConfig(
-            organization_id=test_run.organization_id,
+            workspace_id=test_run.workspace_id,
             name="Test",
             notification_type=NOTIFICATION_WEBHOOK,
             trigger_events=[TRIGGER_RUN_COMPLETED],
@@ -522,7 +522,7 @@ class TestNotificationSending:
         
         test_run = TestRun(
             id=uuid4(),
-            organization_id=uuid4(),
+            workspace_id=uuid4(),
             project_id=uuid4(),
             run_number=101,
             name="Regression Tests",
@@ -536,7 +536,7 @@ class TestNotificationSending:
         )
         
         config = NotificationConfig(
-            organization_id=test_run.organization_id,
+            workspace_id=test_run.workspace_id,
             name="Test",
             notification_type=NOTIFICATION_WEBHOOK,
             trigger_events=[TRIGGER_RUN_FAILED],
@@ -560,7 +560,7 @@ class TestNotificationIntegration:
         self,
         mock_client,
         notification_service,
-        test_organization,
+        test_workspace,
         test_run_data,
         test_user,
         db_session,
@@ -598,12 +598,12 @@ class TestNotificationIntegration:
 
         await notification_service.create_config(
             webhook_config,
-            test_run_data.organization_id,
+            test_run_data.workspace_id,
             user_id,
         )
         await notification_service.create_config(
             slack_config,
-            test_run_data.organization_id,
+            test_run_data.workspace_id,
             user_id,
         )
 
@@ -617,7 +617,7 @@ class TestNotificationIntegration:
         assert len(logs) == 2
         assert all(log.test_run_id == test_run_data.id for log in logs)
     
-    async def test_no_notifications_when_inactive(self, notification_service, test_run_data, test_organization, test_user):
+    async def test_no_notifications_when_inactive(self, notification_service, test_run_data, test_workspace, test_user):
         """Test that inactive configs don't send notifications."""
         user_id = test_user.id
         
@@ -631,7 +631,7 @@ class TestNotificationIntegration:
         
         await notification_service.create_config(
             config,
-            test_run_data.organization_id,
+            test_run_data.workspace_id,
             user_id,
         )
         
@@ -643,3 +643,6 @@ class TestNotificationIntegration:
         
         # No notifications should be sent
         assert len(logs) == 0
+
+
+

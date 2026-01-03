@@ -27,16 +27,16 @@ class TestResultService:
         self,
         run_id: UUID,
         data: TestResultCreateRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestResult:
         """Create a single test result."""
         # Verify run exists
-        run = await self.run_repository.get_by_id_and_org(run_id, organization_id)
+        run = await self.run_repository.get_by_id_and_org(run_id, workspace_id)
         if not run:
             raise ValueError("Test run not found")
         
         result = TestResult(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             test_run_id=run_id,
             **data.model_dump(),
         )
@@ -44,7 +44,7 @@ class TestResultService:
         created = await self.repository.create(result)
         
         # Update run aggregates
-        await self.run_repository.update_aggregates(run_id, organization_id)
+        await self.run_repository.update_aggregates(run_id, workspace_id)
         
         return created
     
@@ -52,11 +52,11 @@ class TestResultService:
         self,
         run_id: UUID,
         data: TestResultBatchCreateRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> tuple[list[TestResult], dict]:
         """Create multiple test results in a batch."""
         # Verify run exists
-        run = await self.run_repository.get_by_id_and_org(run_id, organization_id)
+        run = await self.run_repository.get_by_id_and_org(run_id, workspace_id)
         if not run:
             raise ValueError("Test run not found")
         
@@ -64,7 +64,7 @@ class TestResultService:
         results = []
         for result_data in data.results:
             result = TestResult(
-                organization_id=organization_id,
+                workspace_id=workspace_id,
                 test_run_id=run_id,
                 **result_data.model_dump(),
             )
@@ -74,13 +74,13 @@ class TestResultService:
         created = await self.repository.create_batch(results)
         
         # Update run aggregates
-        updated_run = await self.run_repository.update_aggregates(run_id, organization_id)
+        updated_run = await self.run_repository.update_aggregates(run_id, workspace_id)
         
         # Optionally complete the run
         if data.complete_run and data.final_status:
             await self.run_repository.complete_run(
                 run_id=run_id,
-                organization_id=organization_id,
+                workspace_id=workspace_id,
                 status=data.final_status,
                 total_tests=updated_run.total_tests,
                 passed_tests=updated_run.passed_tests,
@@ -88,7 +88,7 @@ class TestResultService:
                 skipped_tests=updated_run.skipped_tests,
                 error_tests=updated_run.error_tests,
             )
-            updated_run = await self.run_repository.get_by_id_and_org(run_id, organization_id)
+            updated_run = await self.run_repository.get_by_id_and_org(run_id, workspace_id)
         
         run_totals = {
             "total": updated_run.total_tests,
@@ -103,28 +103,28 @@ class TestResultService:
     async def get_result(
         self,
         result_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestResult | None:
         """Get a test result by ID."""
-        return await self.repository.get_by_id_and_org(result_id, organization_id)
+        return await self.repository.get_by_id_and_org(result_id, workspace_id)
     
     async def list_results(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 1000,
         status: str | None = None,
     ) -> list[TestResult]:
         """List test results for a test run."""
         # Verify run exists
-        run = await self.run_repository.get_by_id_and_org(run_id, organization_id)
+        run = await self.run_repository.get_by_id_and_org(run_id, workspace_id)
         if not run:
             raise ValueError("Test run not found")
         
         return await self.repository.get_by_run(
             run_id=run_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             skip=skip,
             limit=limit,
             status=status,
@@ -133,58 +133,58 @@ class TestResultService:
     async def update_result(
         self,
         result_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         data: TestResultUpdateRequest,
     ) -> TestResult | None:
         """Update a test result."""
         update_data = data.model_dump(exclude_unset=True, exclude_none=True)
         if not update_data:
-            return await self.get_result(result_id, organization_id)
+            return await self.get_result(result_id, workspace_id)
         
         result = await self.repository.update_by_id_and_org(
             result_id=result_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             **update_data,
         )
         
         # Update run aggregates if status changed
         if result and "status" in update_data:
-            await self.run_repository.update_aggregates(result.test_run_id, organization_id)
+            await self.run_repository.update_aggregates(result.test_run_id, workspace_id)
         
         return result
     
     async def delete_result(
         self,
         result_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Delete a test result (soft delete)."""
-        result = await self.get_result(result_id, organization_id)
+        result = await self.get_result(result_id, workspace_id)
         if not result:
             return False
         
         run_id = result.test_run_id
-        deleted = await self.repository.delete_by_id_and_org(result_id, organization_id)
+        deleted = await self.repository.delete_by_id_and_org(result_id, workspace_id)
         
         if deleted:
             # Update run aggregates
-            await self.run_repository.update_aggregates(run_id, organization_id)
+            await self.run_repository.update_aggregates(run_id, workspace_id)
         
         return deleted
     
     async def get_summary(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestResultSummary | None:
         """Get summary statistics for a test run."""
         # Verify run exists
-        run = await self.run_repository.get_by_id_and_org(run_id, organization_id)
+        run = await self.run_repository.get_by_id_and_org(run_id, workspace_id)
         if not run:
             return None
         
-        summary = await self.repository.get_run_summary(run_id, organization_id)
-        slowest = await self.repository.get_slowest_tests(run_id, organization_id, limit=5)
+        summary = await self.repository.get_run_summary(run_id, workspace_id)
+        slowest = await self.repository.get_slowest_tests(run_id, workspace_id, limit=5)
         
         slowest_items = [
             TestResultListItem(
@@ -222,27 +222,30 @@ class TestResultService:
     async def get_failed_tests(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> list[TestResult]:
         """Get all failed tests in a run."""
         # Verify run exists
-        run = await self.run_repository.get_by_id_and_org(run_id, organization_id)
+        run = await self.run_repository.get_by_id_and_org(run_id, workspace_id)
         if not run:
             raise ValueError("Test run not found")
         
-        return await self.repository.get_failed_tests(run_id, organization_id)
+        return await self.repository.get_failed_tests(run_id, workspace_id)
     
     async def get_results_by_test_case(
         self,
         test_case_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
     ) -> list[TestResult]:
         """Get historical results for a specific test case."""
         return await self.repository.get_by_test_case(
             test_case_id=test_case_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             skip=skip,
             limit=limit,
         )
+
+
+

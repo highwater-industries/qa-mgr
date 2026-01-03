@@ -7,6 +7,7 @@ Create Date: 2026-01-02 01:36:06.254147
 """
 from alembic import op
 import sqlalchemy as sa
+import sqlmodel
 
 
 # revision identifiers, used by Alembic.
@@ -232,3 +233,4 @@ def downgrade() -> None:
     op.create_index(op.f('ix_api_tokens_tenant_id'), 'api_tokens', ['organization_id'], unique=False)
     op.create_index(op.f('idx_token_organization_active'), 'api_tokens', ['organization_id', 'is_active'], unique=False)
     # ### end Alembic commands ###
+

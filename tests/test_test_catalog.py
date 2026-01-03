@@ -8,11 +8,11 @@ from database.models.test_models import TestCase, TestRun, TestResult
 
 
 @pytest.mark.asyncio
-async def test_search_test_catalog(client: AsyncClient, auth_headers, test_suite, db_session, test_organization):
+async def test_search_test_catalog(client: AsyncClient, auth_headers, test_suite, db_session, test_workspace):
     """Test searching the test catalog."""
     # Create test cases
     test_case1 = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_login_success",
         test_id="tests/auth/test_login.py::test_login_success",
@@ -22,7 +22,7 @@ async def test_search_test_catalog(client: AsyncClient, auth_headers, test_suite
         priority="high",
     )
     test_case2 = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_login_failure",
         test_id="tests/auth/test_login.py::test_login_failure",
@@ -48,11 +48,11 @@ async def test_search_test_catalog(client: AsyncClient, auth_headers, test_suite
 
 
 @pytest.mark.asyncio
-async def test_search_test_catalog_with_filters(client: AsyncClient, auth_headers, test_suite, db_session, test_organization):
+async def test_search_test_catalog_with_filters(client: AsyncClient, auth_headers, test_suite, db_session, test_workspace):
     """Test searching catalog with filters."""
     # Create test cases
     test_case1 = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_login_success",
         test_id="tests/auth/test_login.py::test_login_success",
@@ -60,7 +60,7 @@ async def test_search_test_catalog_with_filters(client: AsyncClient, auth_header
         tags=["auth", "smoke"],
     )
     test_case2 = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_db_connection",
         test_id="tests/db/test_connection.py::test_db_connection",
@@ -94,12 +94,12 @@ async def test_search_test_catalog_with_filters(client: AsyncClient, auth_header
 
 
 @pytest.mark.asyncio
-async def test_search_test_catalog_pagination(client: AsyncClient, auth_headers, test_suite, db_session, test_organization):
+async def test_search_test_catalog_pagination(client: AsyncClient, auth_headers, test_suite, db_session, test_workspace):
     """Test catalog pagination."""
     # Create multiple test cases
     for i in range(10):
         test_case = TestCase(
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             suite_id=test_suite.id,
             name=f"test_case_{i}",
             test_id=f"tests/test_{i}.py::test_case_{i}",
@@ -135,10 +135,10 @@ async def test_search_test_catalog_pagination(client: AsyncClient, auth_headers,
 
 
 @pytest.mark.asyncio
-async def test_get_test_detail(client: AsyncClient, auth_headers, test_suite, db_session, test_organization):
+async def test_get_test_detail(client: AsyncClient, auth_headers, test_suite, db_session, test_workspace):
     """Test getting detailed test information."""
     test_case = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_login",
         test_id="tests/auth/test_login.py::test_login",
@@ -180,11 +180,11 @@ async def test_get_test_detail_not_found(client: AsyncClient, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_get_test_execution_history(client: AsyncClient, auth_headers, test_suite, db_session, test_organization):
+async def test_get_test_execution_history(client: AsyncClient, auth_headers, test_suite, db_session, test_workspace):
     """Test getting test execution history."""
     # Create test case
     test_case = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_example",
         test_id="tests/test_example.py::test_example",
@@ -197,7 +197,7 @@ async def test_get_test_execution_history(client: AsyncClient, auth_headers, tes
     # Create test runs and results
     for i in range(3):
         run = TestRun(
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             name=f"Test Run {i}",
             run_number=i + 1,
             status="completed",
@@ -208,7 +208,7 @@ async def test_get_test_execution_history(client: AsyncClient, auth_headers, tes
         await db_session.refresh(run)
         
         result = TestResult(
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             test_run_id=run.id,
             test_case_id=test_case.id,
             test_id=test_case.test_id,
@@ -235,11 +235,11 @@ async def test_get_test_execution_history(client: AsyncClient, auth_headers, tes
 
 
 @pytest.mark.asyncio
-async def test_get_catalog_statistics(client: AsyncClient, auth_headers, test_suite, db_session, test_organization):
+async def test_get_catalog_statistics(client: AsyncClient, auth_headers, test_suite, db_session, test_workspace):
     """Test getting catalog statistics."""
     # Create test cases with various statuses
     test_case1 = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_active",
         test_id="tests/test_1.py::test_active",
@@ -250,7 +250,7 @@ async def test_get_catalog_statistics(client: AsyncClient, auth_headers, test_su
         last_run_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     test_case2 = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_inactive",
         test_id="tests/test_2.py::test_inactive",
@@ -258,7 +258,7 @@ async def test_get_catalog_statistics(client: AsyncClient, auth_headers, test_su
         is_active=False,
     )
     test_case3 = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_flaky",
         test_id="tests/test_3.py::test_flaky",
@@ -286,11 +286,11 @@ async def test_get_catalog_statistics(client: AsyncClient, auth_headers, test_su
 
 
 @pytest.mark.asyncio
-async def test_catalog_cross_organization_isolation(client: AsyncClient, auth_headers, test_suite, db_session, test_organization):
+async def test_catalog_cross_organization_isolation(client: AsyncClient, auth_headers, test_suite, db_session, test_workspace):
     """Test that users can't see tests from other organizations."""
     # Create test in current org
     test_case1 = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="test_org1",
         test_id="tests/test_org1.py::test_org1",
@@ -311,3 +311,6 @@ async def test_catalog_cross_organization_isolation(client: AsyncClient, auth_he
     data = response.json()
     # Should only see tests from current organization
     assert all(item["name"] == "test_org1" for item in data["data"])
+
+
+

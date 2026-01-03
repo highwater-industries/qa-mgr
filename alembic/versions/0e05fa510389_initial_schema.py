@@ -598,3 +598,4 @@ def downgrade() -> None:
     op.drop_index('idx_system_event_created', table_name='system_events')
     op.drop_table('system_events')
     # ### end Alembic commands ###
+

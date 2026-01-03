@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
-from api.dependencies import get_current_organization, get_current_user
+from api.dependencies import get_current_workspace, get_current_user
 from database.models.worker import (
     ScheduleCreate,
     ScheduleUpdate,
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/schedules", tags=["schedules"])
 async def create_schedule(
     data: ScheduleCreate,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
     user: User = Depends(get_current_user),
 ):
     """
@@ -43,7 +43,7 @@ async def create_schedule(
     service = ScheduleService(db)
     
     try:
-        schedule = await service.create_schedule(data, organization_id, user.id)
+        schedule = await service.create_schedule(data, workspace_id, user.id)
         await db.commit()
         await db.refresh(schedule)
         return schedule
@@ -66,18 +66,18 @@ async def create_schedule(
 )
 async def list_schedules(
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
     project_id: UUID | None = Query(None, description="Filter by project"),
     is_active: bool | None = Query(None, description="Filter by active status"),
     tags: list[str] | None = Query(None, description="Filter by tags (returns schedules with ANY of these tags)"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
 ):
-    """List all schedules for the organization, optionally filtered by project, status, or tags."""
+    """List all schedules for the Workspace, optionally filtered by project, status, or tags."""
     service = ScheduleService(db)
     
     schedules = await service.list_schedules(
-        organization_id=organization_id,
+        workspace_id=workspace_id,
         project_id=project_id,
         is_active=is_active,
         tags=tags,
@@ -95,12 +95,12 @@ async def list_schedules(
 async def get_schedule(
     schedule_id: UUID,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """Get schedule details by ID."""
     service = ScheduleService(db)
     
-    schedule = await service.get_schedule(schedule_id, organization_id)
+    schedule = await service.get_schedule(schedule_id, workspace_id)
     
     if not schedule:
         raise HTTPException(
@@ -119,13 +119,13 @@ async def update_schedule(
     schedule_id: UUID,
     data: ScheduleUpdate,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """Update a schedule."""
     service = ScheduleService(db)
     
     try:
-        schedule = await service.update_schedule(schedule_id, organization_id, data)
+        schedule = await service.update_schedule(schedule_id, workspace_id, data)
         
         if not schedule:
             raise HTTPException(
@@ -150,12 +150,12 @@ async def update_schedule(
 async def delete_schedule(
     schedule_id: UUID,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """Delete (soft delete) a schedule."""
     service = ScheduleService(db)
     
-    success = await service.delete_schedule(schedule_id, organization_id)
+    success = await service.delete_schedule(schedule_id, workspace_id)
     
     if not success:
         raise HTTPException(
@@ -175,7 +175,7 @@ async def toggle_schedule(
     schedule_id: UUID,
     is_active: bool = Query(..., description="Set schedule active status"),
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Toggle schedule active status.
@@ -184,7 +184,7 @@ async def toggle_schedule(
     """
     service = ScheduleService(db)
     
-    schedule = await service.toggle_schedule(schedule_id, organization_id, is_active)
+    schedule = await service.toggle_schedule(schedule_id, workspace_id, is_active)
     
     if not schedule:
         raise HTTPException(
@@ -204,7 +204,7 @@ async def toggle_schedule(
 async def trigger_schedule_now(
     schedule_id: UUID,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Manually trigger a schedule to run immediately.
@@ -214,7 +214,7 @@ async def trigger_schedule_now(
     """
     service = ScheduleService(db)
     
-    schedule = await service.get_schedule(schedule_id, organization_id)
+    schedule = await service.get_schedule(schedule_id, workspace_id)
     
     if not schedule:
         raise HTTPException(
@@ -236,3 +236,6 @@ async def trigger_schedule_now(
         "test_run_id": str(test_run.id),
         "run_number": test_run.run_number,
     }
+
+
+

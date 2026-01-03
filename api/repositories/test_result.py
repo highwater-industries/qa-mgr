@@ -18,13 +18,13 @@ class TestResultRepository(BaseRepository[TestResult]):
     async def get_by_id_and_org(
         self,
         result_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestResult | None:
         """Get a test result by ID, filtering by organization."""
         stmt = select(TestResult).where(
             and_(
                 TestResult.id == result_id,
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.deleted_at.is_(None),
             )
         )
@@ -34,7 +34,7 @@ class TestResultRepository(BaseRepository[TestResult]):
     async def get_by_run(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 1000,
         status: str | None = None,
@@ -42,7 +42,7 @@ class TestResultRepository(BaseRepository[TestResult]):
         """Get all test results for a test run."""
         stmt = select(TestResult).where(
             and_(
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.test_run_id == run_id,
                 TestResult.deleted_at.is_(None),
             )
@@ -59,14 +59,14 @@ class TestResultRepository(BaseRepository[TestResult]):
     async def get_by_test_case(
         self,
         test_case_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
     ) -> list[TestResult]:
         """Get all test results for a specific test case."""
         stmt = select(TestResult).where(
             and_(
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.test_case_id == test_case_id,
                 TestResult.deleted_at.is_(None),
             )
@@ -78,13 +78,13 @@ class TestResultRepository(BaseRepository[TestResult]):
     async def get_by_test_id(
         self,
         test_id: str,
-        organization_id: UUID,
+        workspace_id: UUID,
         run_id: UUID | None = None,
     ) -> list[TestResult]:
         """Get test results by test_id (framework-specific identifier)."""
         stmt = select(TestResult).where(
             and_(
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.test_id == test_id,
                 TestResult.deleted_at.is_(None),
             )
@@ -116,7 +116,7 @@ class TestResultRepository(BaseRepository[TestResult]):
     async def get_run_summary(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> dict:
         """Get summary statistics for a test run."""
         stmt = select(
@@ -129,7 +129,7 @@ class TestResultRepository(BaseRepository[TestResult]):
             func.avg(TestResult.duration_seconds).label("avg_duration"),
         ).where(
             and_(
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.test_run_id == run_id,
                 TestResult.deleted_at.is_(None),
             )
@@ -155,13 +155,13 @@ class TestResultRepository(BaseRepository[TestResult]):
     async def get_slowest_tests(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         limit: int = 10,
     ) -> list[TestResult]:
         """Get the slowest tests in a run."""
         stmt = select(TestResult).where(
             and_(
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.test_run_id == run_id,
                 TestResult.deleted_at.is_(None),
             )
@@ -173,12 +173,12 @@ class TestResultRepository(BaseRepository[TestResult]):
     async def get_failed_tests(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> list[TestResult]:
         """Get all failed tests in a run."""
         return await self.get_by_run(
             run_id=run_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             status="failed",
             limit=10000,
         )
@@ -187,10 +187,10 @@ class TestResultRepository(BaseRepository[TestResult]):
         self,
         result_id: UUID,
         test_case_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestResult | None:
         """Link a test result to a test case."""
-        result = await self.get_by_id_and_org(result_id, organization_id)
+        result = await self.get_by_id_and_org(result_id, workspace_id)
         if not result:
             return None
         
@@ -206,13 +206,13 @@ class TestResultRepository(BaseRepository[TestResult]):
         self,
         result: TestResult,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestCase:
         """Find existing test case or create a new one from result data."""
         # Try to find existing test case by test_id
         stmt = select(TestCase).where(
             and_(
-                TestCase.organization_id == organization_id,
+                TestCase.workspace_id == workspace_id,
                 TestCase.test_id == result.test_id,
                 TestCase.deleted_at.is_(None),
             )
@@ -225,7 +225,7 @@ class TestResultRepository(BaseRepository[TestResult]):
         
         # Create new test case
         test_case = TestCase(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             suite_id=suite_id,
             name=result.test_name,
             test_id=result.test_id,
@@ -242,11 +242,11 @@ class TestResultRepository(BaseRepository[TestResult]):
     async def update_by_id_and_org(
         self,
         result_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         **kwargs,
     ) -> TestResult | None:
         """Update a test result by ID, filtering by organization."""
-        result = await self.get_by_id_and_org(result_id, organization_id)
+        result = await self.get_by_id_and_org(result_id, workspace_id)
         if not result:
             return None
         
@@ -263,10 +263,10 @@ class TestResultRepository(BaseRepository[TestResult]):
     async def delete_by_id_and_org(
         self,
         result_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Soft delete a test result by ID, filtering by organization."""
-        result = await self.get_by_id_and_org(result_id, organization_id)
+        result = await self.get_by_id_and_org(result_id, workspace_id)
         if not result:
             return False
         
@@ -274,3 +274,6 @@ class TestResultRepository(BaseRepository[TestResult]):
         self.db.add(result)
         await self.db.commit()
         return True
+
+
+

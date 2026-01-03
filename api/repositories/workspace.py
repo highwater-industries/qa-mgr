@@ -3,78 +3,78 @@ from uuid import UUID
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.models.organization import Organization, UserOrganizationRole
+from database.models.workspace import Workspace, UserWorkspaceRole
 from database.models.user import User
 from api.repositories.base import BaseRepository
 
-class OrganizationRepository(BaseRepository[Organization]):
+class WorkspaceRepository(BaseRepository[Workspace]):
     """Repository for organization operations."""
     
     def __init__(self, db: AsyncSession):
-        super().__init__(db, Organization)
+        super().__init__(db, Workspace)
     
-    async def get_by_slug(self, slug: str) -> Organization | None:
+    async def get_by_slug(self, slug: str) -> Workspace | None:
         """Get organization by slug."""
         result = await self.db.execute(
-            select(Organization)
-            .where(Organization.slug == slug)
-            .where(Organization.deleted_at.is_(None))
+            select(Workspace)
+            .where(Workspace.slug == slug)
+            .where(Workspace.deleted_at.is_(None))
         )
         return result.scalar_one_or_none()
     
-    async def user_has_access(self, user_id: UUID, organization_id: UUID) -> bool:
+    async def user_has_access(self, user_id: UUID, workspace_id: UUID) -> bool:
         """Check if user has access to organization."""
         result = await self.db.execute(
-            select(UserOrganizationRole)
+            select(UserWorkspaceRole)
             .where(
                 and_(
-                    UserOrganizationRole.user_id == user_id,
-                    UserOrganizationRole.organization_id == organization_id,
-                    UserOrganizationRole.deleted_at.is_(None),
+                    UserWorkspaceRole.user_id == user_id,
+                    UserWorkspaceRole.workspace_id == workspace_id,
+                    UserWorkspaceRole.deleted_at.is_(None),
                 )
             )
         )
         return result.scalar_one_or_none() is not None
     
-    async def get_user_role(self, user_id: UUID, organization_id: UUID) -> str | None:
+    async def get_user_role(self, user_id: UUID, workspace_id: UUID) -> str | None:
         """Get user's role in organization."""
         result = await self.db.execute(
-            select(UserOrganizationRole.role)
+            select(UserWorkspaceRole.role)
             .where(
                 and_(
-                    UserOrganizationRole.user_id == user_id,
-                    UserOrganizationRole.organization_id == organization_id,
-                    UserOrganizationRole.deleted_at.is_(None),
+                    UserWorkspaceRole.user_id == user_id,
+                    UserWorkspaceRole.workspace_id == workspace_id,
+                    UserWorkspaceRole.deleted_at.is_(None),
                 )
             )
         )
         return result.scalar_one_or_none()
     
-    async def get_user_organizations(self, user_id: UUID) -> list[Organization]:
+    async def get_user_organizations(self, user_id: UUID) -> list[Workspace]:
         """Get all organizations user has access to."""
         result = await self.db.execute(
-            select(Organization)
-            .join(UserOrganizationRole)
+            select(Workspace)
+            .join(UserWorkspaceRole)
             .where(
                 and_(
-                    UserOrganizationRole.user_id == user_id,
-                    UserOrganizationRole.deleted_at.is_(None),
-                    Organization.deleted_at.is_(None),
+                    UserWorkspaceRole.user_id == user_id,
+                    UserWorkspaceRole.deleted_at.is_(None),
+                    Workspace.deleted_at.is_(None),
                 )
             )
         )
         return list(result.scalars().all())
     
-    async def create_with_admin(self, organization: Organization, admin_user_id: UUID) -> Organization:
+    async def create_with_admin(self, organization: Workspace, admin_user_id: UUID) -> Workspace:
         """Create organization and grant admin role to user and all superusers."""
         # Create organization
         self.db.add(organization)
         await self.db.flush()
         
         # Grant creator admin access
-        role = UserOrganizationRole(
+        role = UserWorkspaceRole(
             user_id=admin_user_id,
-            organization_id=organization.id,
+            workspace_id=organization.id,
             role="admin",
         )
         self.db.add(role)
@@ -92,9 +92,9 @@ class OrganizationRepository(BaseRepository[Organization]):
         superusers = result.scalars().all()
         
         for superuser in superusers:
-            superuser_role = UserOrganizationRole(
+            superuser_role = UserWorkspaceRole(
                 user_id=superuser.id,
-                organization_id=organization.id,
+                workspace_id=organization.id,
                 role="admin",
             )
             self.db.add(superuser_role)
@@ -105,16 +105,16 @@ class OrganizationRepository(BaseRepository[Organization]):
         return organization
     
     async def assign_user_role(
-        self, organization_id: UUID, user_id: UUID, role: str
+        self, workspace_id: UUID, user_id: UUID, role: str
     ) -> None:
         """Assign or update user role in organization."""
         # Check if role already exists
         result = await self.db.execute(
-            select(UserOrganizationRole)
+            select(UserWorkspaceRole)
             .where(
                 and_(
-                    UserOrganizationRole.user_id == user_id,
-                    UserOrganizationRole.organization_id == organization_id,
+                    UserWorkspaceRole.user_id == user_id,
+                    UserWorkspaceRole.workspace_id == workspace_id,
                 )
             )
         )
@@ -126,11 +126,15 @@ class OrganizationRepository(BaseRepository[Organization]):
             existing.deleted_at = None  # Reactivate if soft-deleted
         else:
             # Create new role assignment
-            new_role = UserOrganizationRole(
+            new_role = UserWorkspaceRole(
                 user_id=user_id,
-                organization_id=organization_id,
+                workspace_id=workspace_id,
                 role=role,
             )
             self.db.add(new_role)
         
         await self.db.commit()
+
+
+
+

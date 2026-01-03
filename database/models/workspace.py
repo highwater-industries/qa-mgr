@@ -1,8 +1,8 @@
 """
-Organization and UserWorkspaceRole models.
+Workspace and UserWorkspaceRole models.
 
-Organization represents an organization or application workspace.
-UserWorkspaceRole maps users to organizations with specific roles.
+Workspace represents a workspace or application workspace for multi-tenancy.
+UserWorkspaceRole maps users to workspaces with specific roles.
 """
 
 from typing import Optional, TYPE_CHECKING
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 from .base import (
     BaseModel,
-    ORGANIZATION_TYPE_Workspace,
+    ORGANIZATION_TYPE_ORGANIZATION,
     ORGANIZATION_TYPE_APPLICATION,
     ORGANIZATION_STATUS_ACTIVE,
     ROLE_VIEWER,
@@ -30,17 +30,17 @@ from .base import (
 
 class Workspace(BaseModel, table=True):
     """
-    Organization table - represents an organization or application workspace.
+    Workspace table - represents a workspace or application workspace.
     
-    Supports hierarchical structure: root organization → app organizations.
+    Supports hierarchical structure: root workspace → app workspaces.
     """
     
-    __tablename__ = "organizations"
+    __tablename__ = "workspaces"
     
     # Hierarchy
     parent_workspace_id: UUID | None = Field(
         default=None,
-        foreign_key="organizations.id",
+        foreign_key="workspaces.id",
         nullable=True,
     )
     
@@ -64,35 +64,35 @@ class Workspace(BaseModel, table=True):
     max_storage_gb: int | None = Field(default=50)
     
     # Relationships
-    parent: Optional["Organization"] = Relationship(
+    parent: Optional["Workspace"] = Relationship(
         back_populates="children",
         sa_relationship_kwargs={
             "remote_side": "Workspace.id",
-            "foreign_keys": "[Organization.parent_workspace_id]",
+            "foreign_keys": "[Workspace.parent_workspace_id]",
         },
     )
-    children: list["Organization"] = Relationship(back_populates="parent")
+    children: list["Workspace"] = Relationship(back_populates="parent")
     
     __table_args__ = (
-        Index("idx_organization_slug", "slug"),
-        Index("idx_organization_parent", "parent_workspace_id"),
+        Index("idx_workspace_slug", "slug"),
+        Index("idx_workspace_parent", "parent_workspace_id"),
     )
 
 
 class UserWorkspaceRole(BaseModel, table=True):
     """
-    UserWorkspaceRole table - maps users to organizations with specific roles.
+    UserWorkspaceRole table - maps users to workspaces with specific roles.
     
-    Enables multi-organization access control:
-    - One user can belong to multiple organizations
-    - Each user-organization pair has a role (admin, engineer, viewer, etc.)
+    Enables multi-workspace access control:
+    - One user can belong to multiple workspaces
+    - Each user-workspace pair has a role (admin, engineer, viewer, etc.)
     """
     
-    __tablename__ = "user_organization_roles"
+    __tablename__ = "user_workspace_roles"
     
     # Foreign keys
     user_id: UUID = Field(foreign_key="users.id", index=True)
-    workspace_id: UUID = Field(foreign_key="organizations.id", index=True)
+    workspace_id: UUID = Field(foreign_key="workspaces.id", index=True)
     
     # Role
     role: str = Field(max_length=50, default=ROLE_VIEWER)
@@ -104,21 +104,21 @@ class UserWorkspaceRole(BaseModel, table=True):
     
     # Relationships
     user: "User" = Relationship(
-        back_populates="organization_roles",
+        back_populates="workspace_roles",
         sa_relationship_kwargs={"foreign_keys": "[UserWorkspaceRole.user_id]"}
     )
-    organization: Organization = Relationship()
+    workspace: Workspace = Relationship()
     
     __table_args__ = (
-        # Unique constraint: one role per user-organization pair
+        # Unique constraint: one role per user-workspace pair
         Index(
-            "idx_unique_user_organization",
+            "idx_unique_user_workspace",
             "user_id",
             "workspace_id",
             unique=True,
             postgresql_where="revoked_at IS NULL",  # Only active roles
         ),
-        Index("idx_user_organization", "user_id", "workspace_id"),
+        Index("idx_user_workspace", "user_id", "workspace_id"),
     )
 
 
@@ -127,7 +127,7 @@ class UserWorkspaceRole(BaseModel, table=True):
 # =============================================================================
 
 class WorkspaceBase(SQLModel):
-    """Base schema for Organization (shared fields)."""
+    """Base schema for Workspace (shared fields)."""
     name: str = Field(max_length=255, min_length=1)
     slug: str = Field(
         max_length=255,
@@ -139,7 +139,7 @@ class WorkspaceBase(SQLModel):
 
 
 class WorkspaceCreate(WorkspaceBase):
-    """Request schema for creating an organization."""
+    """Request schema for creating a workspace."""
     parent_workspace_id: UUID | None = None
     max_users: int | None = 100
     max_storage_gb: int | None = 50
@@ -147,7 +147,7 @@ class WorkspaceCreate(WorkspaceBase):
 
 
 class WorkspaceUpdate(SQLModel):
-    """Request schema for updating an organization."""
+    """Request schema for updating a workspace."""
     name: str | None = None
     status: str | None = None
     max_users: int | None = None
@@ -156,7 +156,7 @@ class WorkspaceUpdate(SQLModel):
 
 
 class WorkspacePublic(WorkspaceBase):
-    """Public response schema for Organization."""
+    """Public response schema for Workspace."""
     id: UUID
     parent_workspace_id: UUID | None
     status: str
@@ -170,7 +170,7 @@ class WorkspacePublic(WorkspaceBase):
 
 
 class WorkspaceDetail(WorkspacePublic):
-    """Detailed response schema for Organization (includes config)."""
+    """Detailed response schema for Workspace (includes config)."""
     config: dict
     updated_at: datetime
 
@@ -212,8 +212,8 @@ class UserWorkspaceRolePublic(UserWorkspaceRoleBase):
 # =============================================================================
 
 """
-# Creating an organization
-organization = Organization(
+# Creating a workspace
+workspace = Workspace(
     name="Engineering Team",
     slug="engineering",
     type=ORGANIZATION_TYPE_APPLICATION,
@@ -221,16 +221,16 @@ organization = Organization(
 )
 
 # API endpoint
-@router.post("/organizations", response_model=WorkspacePublic)
-async def create_organization(
+@router.post("/workspaces", response_model=WorkspacePublic)
+async def create_workspace(
     data: WorkspaceCreate,
     session: Session = Depends(get_session),
 ):
-    organization = Organization(**data.model_dump())
-    session.add(Workspace)
+    workspace = Workspace(**data.model_dump())
+    session.add(workspace)
     session.commit()
-    session.refresh(Workspace)
-    return organization
+    session.refresh(workspace)
+    return workspace
 """
 
 

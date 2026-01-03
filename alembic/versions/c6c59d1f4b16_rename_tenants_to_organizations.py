@@ -98,3 +98,4 @@ def downgrade() -> None:
     
     op.rename_table('user_organization_roles', 'user_tenant_roles')
     op.rename_table('organizations', 'tenants')
+

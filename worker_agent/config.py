@@ -22,9 +22,9 @@ class WorkerConfig(BaseSettings):
         default="",
         description="API key for authentication (X-API-Key header)",
     )
-    organization_id: str = Field(
+    workspace_id: str = Field(
         default="",
-        description="Organization ID (X-Organization-ID header)",
+        description="Workspace ID (X-Workspace-ID header)",
     )
     
     # Worker identity
@@ -132,3 +132,5 @@ class WorkerConfig(BaseSettings):
     def python_version(self) -> str:
         """Get Python version."""
         return platform.python_version()
+
+

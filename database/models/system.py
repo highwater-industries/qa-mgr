@@ -76,9 +76,9 @@ class APIToken(TenantBaseModel, table=True):
     user: Optional["User"] = Relationship()  # type: ignore
     
     __table_args__ = (
-        Index("idx_token_organization_user", "organization_id", "user_id"),
+        Index("idx_token_organization_user", "workspace_id", "user_id"),
         Index("idx_token_prefix", "token_prefix"),
-        Index("idx_token_active", "organization_id", "is_active"),
+        Index("idx_token_active", "workspace_id", "is_active"),
     )
 
 
@@ -133,8 +133,8 @@ class AuditLog(TenantBaseModel, table=True):
     user: Optional["User"] = Relationship()  # type: ignore
     
     __table_args__ = (
-        Index("idx_audit_organization_action", "organization_id", "action"),
-        Index("idx_audit_organization_resource", "organization_id", "resource_type", "resource_id"),
+        Index("idx_audit_organization_action", "workspace_id", "action"),
+        Index("idx_audit_organization_resource", "workspace_id", "resource_type", "resource_id"),
         Index("idx_audit_created_at", "created_at"),
         Index("idx_audit_user_created", "user_id", "created_at"),
     )
@@ -182,12 +182,12 @@ class SystemEvent(BaseModel, table=True):
     )
     
     # Optional organization context (for organization-specific events)
-    organization_id: UUID | None = Field(default=None, index=True)
+    workspace_id: UUID | None = Field(default=None, index=True)
     
     __table_args__ = (
         Index("idx_system_event_type", "event_type", "severity"),
         Index("idx_system_event_source", "source", "source_type"),
-        Index("idx_system_event_organization", "organization_id", "created_at"),
+        Index("idx_system_event_organization", "workspace_id", "created_at"),
         Index("idx_system_event_created", "created_at"),
     )
 
@@ -240,8 +240,8 @@ class TestCoverage(TenantBaseModel, table=True):
     project: "Project" = Relationship()  # type: ignore
     
     __table_args__ = (
-        Index("idx_coverage_organization_run", "organization_id", "test_run_id"),
-        Index("idx_coverage_organization_project", "organization_id", "project_id"),
+        Index("idx_coverage_organization_run", "workspace_id", "test_run_id"),
+        Index("idx_coverage_organization_project", "workspace_id", "project_id"),
         Index("idx_coverage_percentage", "coverage_percentage"),
     )
 
@@ -310,10 +310,10 @@ class TestFailureAnalysis(TenantBaseModel, table=True):
     test_case: "TestCase" = Relationship()  # type: ignore
     
     __table_args__ = (
-        Index("idx_failure_organization_test", "organization_id", "test_case_id"),
+        Index("idx_failure_organization_test", "workspace_id", "test_case_id"),
         Index("idx_failure_pattern", "failure_pattern_hash"),
-        Index("idx_failure_flaky", "organization_id", "is_flaky"),
-        Index("idx_failure_resolved", "organization_id", "is_resolved"),
+        Index("idx_failure_flaky", "workspace_id", "is_flaky"),
+        Index("idx_failure_resolved", "workspace_id", "is_resolved"),
     )
 
 
@@ -336,7 +336,7 @@ class APITokenCreate(APITokenBase):
 class APITokenPublic(APITokenBase):
     """Public response schema for APIToken (without token)."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     user_id: UUID | None
     description: str | None
     token_prefix: str
@@ -359,7 +359,7 @@ class APITokenCreated(APITokenPublic):
 class AuditLogPublic(SQLModel):
     """Public response schema for AuditLog."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     user_id: UUID | None
     action: str
     resource_type: str
@@ -389,7 +389,7 @@ class SystemEventPublic(SQLModel):
     source: str
     source_type: str
     message: str
-    organization_id: UUID | None
+    workspace_id: UUID | None
     created_at: datetime
 
 
@@ -407,7 +407,7 @@ class SystemEventDetail(SystemEventPublic):
 class TestCoveragePublic(SQLModel):
     """Public response schema for TestCoverage."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     test_run_id: UUID
     project_id: UUID
     total_statements: int
@@ -434,7 +434,7 @@ class TestCoverageDetail(TestCoveragePublic):
 class TestFailureAnalysisPublic(SQLModel):
     """Public response schema for TestFailureAnalysis."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     test_case_id: UUID
     failure_message: str
     first_seen_at: datetime
@@ -464,7 +464,7 @@ class TestFailureAnalysisDetail(TestFailureAnalysisPublic):
 """
 # Creating an API token
 token = APIToken(
-    organization_id=current_organization_id,
+    organization_id=current_workspace_id,
     user_id=current_user_id,
     name="CI/CD Token",
     token_prefix="qat_abcd1234",
@@ -475,7 +475,7 @@ token = APIToken(
 
 # Creating an audit log entry
 audit = AuditLog(
-    organization_id=current_organization_id,
+    organization_id=current_workspace_id,
     user_id=current_user_id,
     action="update",
     resource_type="project",
@@ -503,4 +503,6 @@ event = SystemEvent(
     tags=["worker", "celery", "crash"],
 )
 """
+
+
 

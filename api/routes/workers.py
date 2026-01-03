@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
-from api.dependencies import get_current_organization
+from api.dependencies import get_current_workspace
 from api.schemas.worker import (
     WorkerRegisterRequest,
     WorkerHeartbeatRequest,
@@ -31,7 +31,7 @@ router = APIRouter(prefix="/workers", tags=["workers"])
 async def register_worker(
     request: WorkerRegisterRequest,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Register a new worker or update existing worker.
@@ -42,7 +42,7 @@ async def register_worker(
     service = WorkerService(db)
     
     try:
-        worker = await service.register_worker(request, organization_id)
+        worker = await service.register_worker(request, workspace_id)
         await db.commit()
         await db.refresh(worker)
         
@@ -67,7 +67,7 @@ async def send_heartbeat(
     worker_id: UUID,
     request: WorkerHeartbeatRequest,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Send worker heartbeat to update status.
@@ -77,7 +77,7 @@ async def send_heartbeat(
     """
     service = WorkerService(db)
     
-    worker = await service.update_heartbeat(worker_id, request, organization_id)
+    worker = await service.update_heartbeat(worker_id, request, workspace_id)
     
     if not worker:
         raise HTTPException(
@@ -97,7 +97,7 @@ async def send_heartbeat(
 )
 async def list_workers(
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
     status: str | None = Query(None, description="Filter by status"),
     worker_type: str | None = Query(None, description="Filter by worker type"),
     is_available: bool | None = Query(None, description="Filter by availability"),
@@ -113,7 +113,7 @@ async def list_workers(
     service = WorkerService(db)
     
     workers = await service.list_workers(
-        organization_id=organization_id,
+        workspace_id=workspace_id,
         status=status,
         worker_type=worker_type,
         is_available=is_available,
@@ -131,7 +131,7 @@ async def list_workers(
 )
 async def get_worker_health_summary(
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Get health summary of all workers in the organization.
@@ -143,10 +143,10 @@ async def get_worker_health_summary(
     """
     service = WorkerHealthService(db)
     
-    result = await service.get_health_summary(organization_id)
+    result = await service.get_health_summary(workspace_id)
     
     return WorkerHealthResponse(
-        organization_id=UUID(result["organization_id"]),
+        workspace_id=UUID(result["workspace_id"]),
         checked_at=result["checked_at"],
         summary=result["summary"],
         workers=result["workers"],
@@ -160,7 +160,7 @@ async def get_worker_health_summary(
 async def get_worker_health_detail(
     worker_id: UUID,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Get detailed health information for a specific worker.
@@ -173,7 +173,7 @@ async def get_worker_health_detail(
     """
     service = WorkerHealthService(db)
     
-    result = await service.get_worker_health(worker_id, organization_id)
+    result = await service.get_worker_health(worker_id, workspace_id)
     
     if not result:
         raise HTTPException(
@@ -202,7 +202,7 @@ async def get_worker_health_detail(
 )
 async def list_available_workers(
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
     worker_type: str | None = Query(None, description="Filter by worker type"),
     required_tags: list[str] | None = Query(None, description="Required tags"),
 ):
@@ -218,7 +218,7 @@ async def list_available_workers(
     service = WorkerService(db)
     
     workers = await service.get_available_workers(
-        organization_id=organization_id,
+        workspace_id=workspace_id,
         worker_type=worker_type,
         required_tags=required_tags,
     )
@@ -233,12 +233,12 @@ async def list_available_workers(
 async def get_worker(
     worker_id: UUID,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """Get worker details by ID."""
     service = WorkerService(db)
     
-    worker = await service.get_worker(worker_id, organization_id)
+    worker = await service.get_worker(worker_id, workspace_id)
     
     if not worker:
         raise HTTPException(
@@ -257,7 +257,7 @@ async def update_worker_availability(
     worker_id: UUID,
     is_available: bool = Query(..., description="Set worker availability"),
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Update worker availability.
@@ -268,7 +268,7 @@ async def update_worker_availability(
     
     worker = await service.update_availability(
         worker_id=worker_id,
-        organization_id=organization_id,
+        workspace_id=workspace_id,
         is_available=is_available,
     )
     
@@ -291,7 +291,7 @@ async def update_worker_availability(
 async def delete_worker(
     worker_id: UUID,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Delete (deregister) a worker.
@@ -300,7 +300,7 @@ async def delete_worker(
     """
     service = WorkerService(db)
     
-    success = await service.delete_worker(worker_id, organization_id)
+    success = await service.delete_worker(worker_id, workspace_id)
     
     if not success:
         raise HTTPException(
@@ -310,3 +310,6 @@ async def delete_worker(
     
     await db.commit()
     return None
+
+
+

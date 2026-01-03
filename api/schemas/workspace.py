@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-class OrganizationCreateRequest(BaseModel):
+class WorkspaceCreateRequest(BaseModel):
     """Request to create a new organization."""
     name: str = Field(..., min_length=1, max_length=255, description="Organization display name")
     slug: str = Field(..., min_length=1, max_length=255, pattern=r"^[a-z0-9-]+$", description="URL-safe identifier")
@@ -14,7 +14,7 @@ class OrganizationCreateRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
 
-class OrganizationResponse(BaseModel):
+class WorkspaceResponse(BaseModel):
     """Organization response with basic info."""
     id: UUID
     name: str
@@ -28,7 +28,7 @@ class OrganizationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class OrganizationDetailResponse(OrganizationResponse):
+class WorkspaceDetailResponse(WorkspaceResponse):
     """Detailed organization response with config."""
     config: dict
     parent_id: UUID | None = None
@@ -39,10 +39,10 @@ class OrganizationDetailResponse(OrganizationResponse):
     model_config = {"from_attributes": True}
 
 
-class UserOrganizationRoleResponse(BaseModel):
+class UserWorkspaceRoleResponse(BaseModel):
     """User's role in an organization."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     role: str
     granted_at: datetime
     
@@ -55,3 +55,6 @@ class AssignUserRequest(BaseModel):
     role: str = Field(..., description="Role: 'admin', 'member', or 'viewer'")
     
     model_config = {"extra": "forbid"}
+
+
+

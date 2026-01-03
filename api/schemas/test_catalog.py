@@ -55,7 +55,7 @@ class TestCatalogDetail(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     suite_id: UUID
     test_id: str
     name: str
@@ -116,3 +116,6 @@ class TestCatalogStatistics(BaseModel):
     by_priority: dict[str, int]
     avg_pass_rate: float | None
     avg_duration_seconds: float | None
+
+
+

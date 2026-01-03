@@ -54,8 +54,8 @@ class Project(TenantBaseModel, table=True):
     test_suites: list["TestSuite"] = Relationship(back_populates="project")
     
     __table_args__ = (
-        Index("idx_project_organization", "organization_id"),
-        Index("idx_project_organization_name", "organization_id", "name"),
+        Index("idx_project_organization", "workspace_id"),
+        Index("idx_project_organization_name", "workspace_id", "name"),
     )
 
 
@@ -116,9 +116,9 @@ class TestSuite(TenantBaseModel, table=True):
     test_cases: list["TestCase"] = Relationship(back_populates="suite")  # type: ignore
     
     __table_args__ = (
-        Index("idx_suite_organization_project", "organization_id", "project_id"),
+        Index("idx_suite_organization_project", "workspace_id", "project_id"),
         Index("idx_suite_parent", "parent_id"),
-        Index("idx_suite_organization_path", "organization_id", "path"),
+        Index("idx_suite_organization_path", "workspace_id", "path"),
     )
 
 
@@ -152,7 +152,7 @@ class ProjectUpdate(SQLModel):
 class ProjectPublic(ProjectBase):
     """Public response schema for Project."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     repository_url: str | None
     repository_type: str | None
     default_branch: str
@@ -202,7 +202,7 @@ class TestSuiteUpdate(SQLModel):
 class TestSuitePublic(TestSuiteBase):
     """Public response schema for TestSuite."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     project_id: UUID
     parent_id: UUID | None
     tags: list[str]
@@ -239,7 +239,7 @@ class TestSuiteTree(TestSuitePublic):
 """
 # Creating a project
 project = Project(
-    organization_id=current_organization_id,
+    organization_id=current_workspace_id,
     name="Web Application",
     repository_url="https://github.com/org/web-app.git",
     default_branch="main",
@@ -247,7 +247,7 @@ project = Project(
 
 # Creating a test suite
 suite = TestSuite(
-    organization_id=current_organization_id,
+    organization_id=current_workspace_id,
     project_id=project.id,
     name="API Tests",
     path="tests/api",
@@ -260,12 +260,14 @@ suite = TestSuite(
 async def create_project(
     data: ProjectCreate,
     session: Session = Depends(get_session),
-    current_organization_id: UUID = Depends(get_current_organization),
+    current_workspace_id: UUID = Depends(get_current_workspace),
 ):
-    project = Project(**data.model_dump(), organization_id=current_organization_id)
+    project = Project(**data.model_dump(), organization_id=current_workspace_id)
     session.add(project)
     session.commit()
     session.refresh(project)
     return project
 """
+
+
 

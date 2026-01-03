@@ -13,7 +13,7 @@ from database.models.worker import TestWorker
 async def test_register_worker(
     client: AsyncClient,
     auth_headers: dict[str, str],
-    test_org_id,
+    test_ws_id,
 ):
     """Test worker registration."""
     payload = {
@@ -50,12 +50,12 @@ async def test_register_worker_updates_existing(
     client: AsyncClient,
     auth_headers: dict[str, str],
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test that re-registering a worker updates the existing record."""
     # Create initial worker
     worker = TestWorker(
-        organization_id=test_org_id,
+        workspace_id=test_ws_id,
         name="existing-worker",
         worker_type="celery",
         status="offline",
@@ -88,7 +88,7 @@ async def test_register_worker_updates_existing(
     
     # Verify worker was updated, not created new
     stmt = select(TestWorker).where(
-        TestWorker.organization_id == test_org_id,
+        TestWorker.workspace_id == test_ws_id,
         TestWorker.name == "existing-worker",
         TestWorker.deleted_at.is_(None),
     )
@@ -109,12 +109,12 @@ async def test_send_heartbeat(
     client: AsyncClient,
     auth_headers: dict[str, str],
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test sending worker heartbeat."""
     # Create worker
     worker = TestWorker(
-        organization_id=test_org_id,
+        workspace_id=test_ws_id,
         name="heartbeat-worker",
         worker_type="celery",
         status="idle",
@@ -154,13 +154,13 @@ async def test_list_workers(
     client: AsyncClient,
     auth_headers: dict[str, str],
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test listing workers."""
     # Create multiple workers
     workers = [
         TestWorker(
-            organization_id=test_org_id,
+            workspace_id=test_ws_id,
             name=f"worker-{i}",
             worker_type="celery",
             status="idle" if i % 2 == 0 else "busy",
@@ -192,13 +192,13 @@ async def test_list_workers_with_filters(
     client: AsyncClient,
     auth_headers: dict[str, str],
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test listing workers with filters."""
     # Create workers with different statuses
     workers = [
         TestWorker(
-            organization_id=test_org_id,
+            workspace_id=test_ws_id,
             name="idle-worker",
             worker_type="celery",
             status="idle",
@@ -207,7 +207,7 @@ async def test_list_workers_with_filters(
             worker_config={},
         ),
         TestWorker(
-            organization_id=test_org_id,
+            workspace_id=test_ws_id,
             name="busy-worker",
             worker_type="celery",
             status="busy",
@@ -216,7 +216,7 @@ async def test_list_workers_with_filters(
             worker_config={},
         ),
         TestWorker(
-            organization_id=test_org_id,
+            workspace_id=test_ws_id,
             name="offline-worker",
             worker_type="jenkins",
             status="offline",
@@ -266,11 +266,11 @@ async def test_get_worker(
     client: AsyncClient,
     auth_headers: dict[str, str],
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test getting worker details."""
     worker = TestWorker(
-        organization_id=test_org_id,
+        workspace_id=test_ws_id,
         name="detail-worker",
         worker_type="celery",
         status="idle",
@@ -302,11 +302,11 @@ async def test_update_worker_availability(
     client: AsyncClient,
     auth_headers: dict[str, str],
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test updating worker availability."""
     worker = TestWorker(
-        organization_id=test_org_id,
+        workspace_id=test_ws_id,
         name="availability-worker",
         worker_type="celery",
         status="idle",
@@ -343,11 +343,11 @@ async def test_delete_worker(
     client: AsyncClient,
     auth_headers: dict[str, str],
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test deleting a worker."""
     worker = TestWorker(
-        organization_id=test_org_id,
+        workspace_id=test_ws_id,
         name="delete-worker",
         worker_type="celery",
         status="idle",
@@ -374,13 +374,13 @@ async def test_list_available_workers(
     client: AsyncClient,
     auth_headers: dict[str, str],
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test listing available workers for job assignment."""
     # Create workers with different availability
     workers = [
         TestWorker(
-            organization_id=test_org_id,
+            workspace_id=test_ws_id,
             name="available-1",
             worker_type="celery",
             status="idle",
@@ -391,7 +391,7 @@ async def test_list_available_workers(
             worker_config={},
         ),
         TestWorker(
-            organization_id=test_org_id,
+            workspace_id=test_ws_id,
             name="available-2",
             worker_type="celery",
             status="busy",
@@ -402,7 +402,7 @@ async def test_list_available_workers(
             worker_config={},
         ),
         TestWorker(
-            organization_id=test_org_id,
+            workspace_id=test_ws_id,
             name="at-capacity",
             worker_type="celery",
             status="busy",
@@ -413,7 +413,7 @@ async def test_list_available_workers(
             worker_config={},
         ),
         TestWorker(
-            organization_id=test_org_id,
+            workspace_id=test_ws_id,
             name="unavailable",
             worker_type="celery",
             status="idle",
@@ -473,3 +473,6 @@ async def test_worker_not_found(
     )
     
     assert response.status_code == 404
+
+
+

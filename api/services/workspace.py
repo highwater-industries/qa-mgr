@@ -2,22 +2,22 @@
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from database.models.organization import Organization
-from api.repositories.organization import OrganizationRepository
-from api.schemas.organization import OrganizationCreateRequest
+from database.models.workspace import Workspace
+from api.repositories.workspace import WorkspaceRepository
+from api.schemas.workspace import WorkspaceCreateRequest
 
-class OrganizationService:
+class WorkspaceService:
     """Business logic for organization operations."""
     
-    def __init__(self, repo: OrganizationRepository):
+    def __init__(self, repo: WorkspaceRepository):
         self.repo = repo
     
     async def create_organization(
         self,
-        organization_data: OrganizationCreateRequest,
+        organization_data: WorkspaceCreateRequest,
         created_by: UUID,
         is_org_admin: bool = False,
-    ) -> Organization:
+    ) -> Workspace:
         """
         Create new organization.
         
@@ -40,7 +40,7 @@ class OrganizationService:
             )
         
         # Create organization
-        organization = Organization(
+        organization = Workspace(
             name=organization_data.name,
             slug=organization_data.slug,
             description=organization_data.description,
@@ -53,9 +53,9 @@ class OrganizationService:
         
         return organization
     
-    async def get_organization(self, organization_id: UUID) -> Organization:
+    async def get_organization(self, workspace_id: UUID) -> Workspace:
         """Get organization by ID."""
-        organization = await self.repo.get_by_id(organization_id)
+        organization = await self.repo.get_by_id(workspace_id)
         if not organization:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -63,15 +63,15 @@ class OrganizationService:
             )
         return organization
     
-    async def list_user_organizations(self, user_id: UUID) -> list[Organization]:
+    async def list_user_organizations(self, user_id: UUID) -> list[Workspace]:
         """List all organizations user has access to."""
         return await self.repo.get_user_organizations(user_id)
     
     async def update_organization(
-        self, organization_id: UUID, organization_data: OrganizationCreateRequest
-    ) -> Organization:
+        self, workspace_id: UUID, organization_data: WorkspaceCreateRequest
+    ) -> Workspace:
         """Update organization."""
-        organization = await self.get_organization(organization_id)
+        organization = await self.get_organization(workspace_id)
         
         # Check if slug is changing and if it's unique
         if organization_data.slug != organization.slug:
@@ -90,17 +90,21 @@ class OrganizationService:
         
         return await self.repo.update(organization)
     
-    async def delete_organization(self, organization_id: UUID) -> None:
+    async def delete_organization(self, workspace_id: UUID) -> None:
         """Soft delete organization."""
-        organization = await self.get_organization(organization_id)
-        await self.repo.delete(organization_id)
+        organization = await self.get_organization(workspace_id)
+        await self.repo.delete(workspace_id)
     
     async def assign_user(
-        self, organization_id: UUID, user_id: UUID, role: str
+        self, workspace_id: UUID, user_id: UUID, role: str
     ) -> None:
         """Assign user to organization with role."""
         # Verify organization exists
-        organization = await self.get_organization(organization_id)
+        organization = await self.get_organization(workspace_id)
         
         # Assign role
-        await self.repo.assign_user_role(organization_id, user_id, role)
+        await self.repo.assign_user_role(workspace_id, user_id, role)
+
+
+
+

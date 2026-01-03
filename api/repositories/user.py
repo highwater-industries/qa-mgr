@@ -43,3 +43,6 @@ class UserRepository(BaseRepository[User]):
         
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+
+

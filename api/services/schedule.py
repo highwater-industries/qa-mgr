@@ -30,7 +30,7 @@ class ScheduleService:
     async def create_schedule(
         self,
         data: ScheduleCreate,
-        organization_id: UUID,
+        workspace_id: UUID,
         user_id: UUID,
     ) -> Schedule:
         """
@@ -38,7 +38,7 @@ class ScheduleService:
         
         Args:
             data: Schedule creation data
-            organization_id: Organization ID
+            workspace_id: Organization ID
             user_id: User ID who created the schedule
             
         Returns:
@@ -54,7 +54,7 @@ class ScheduleService:
         next_run = cron.get_next(datetime)
         
         schedule = Schedule(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             project_id=data.project_id,
             suite_id=data.suite_id,
             name=data.name,
@@ -79,13 +79,13 @@ class ScheduleService:
     async def get_schedule(
         self,
         schedule_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> Schedule | None:
         """Get a schedule by ID."""
         stmt = select(Schedule).where(
             and_(
                 Schedule.id == schedule_id,
-                Schedule.organization_id == organization_id,
+                Schedule.workspace_id == workspace_id,
                 Schedule.deleted_at.is_(None),
             )
         )
@@ -94,7 +94,7 @@ class ScheduleService:
     
     async def list_schedules(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         project_id: UUID | None = None,
         is_active: bool | None = None,
         tags: list[str] | None = None,
@@ -103,7 +103,7 @@ class ScheduleService:
     ) -> list[Schedule]:
         """List schedules with optional filtering."""
         conditions = [
-            Schedule.organization_id == organization_id,
+            Schedule.workspace_id == workspace_id,
             Schedule.deleted_at.is_(None),
         ]
         
@@ -127,11 +127,11 @@ class ScheduleService:
     async def update_schedule(
         self,
         schedule_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         data: ScheduleUpdate,
     ) -> Schedule | None:
         """Update a schedule."""
-        schedule = await self.get_schedule(schedule_id, organization_id)
+        schedule = await self.get_schedule(schedule_id, workspace_id)
         if not schedule:
             return None
         
@@ -159,10 +159,10 @@ class ScheduleService:
     async def delete_schedule(
         self,
         schedule_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Soft delete a schedule."""
-        schedule = await self.get_schedule(schedule_id, organization_id)
+        schedule = await self.get_schedule(schedule_id, workspace_id)
         if not schedule:
             return False
         
@@ -212,11 +212,11 @@ class ScheduleService:
         from api.services.test_run import TestRunService
         
         # Get next run number for this organization
-        run_number = await self._get_next_run_number(schedule.organization_id)
+        run_number = await self._get_next_run_number(schedule.workspace_id)
         
         # Create test run
         test_run = TestRun(
-            organization_id=schedule.organization_id,
+            workspace_id=schedule.workspace_id,
             project_id=schedule.project_id,
             suite_id=schedule.suite_id,
             schedule_id=schedule.id,
@@ -254,12 +254,12 @@ class ScheduleService:
         
         return test_run
     
-    async def _get_next_run_number(self, organization_id: UUID) -> int:
+    async def _get_next_run_number(self, workspace_id: UUID) -> int:
         """Get the next run number for an organization."""
         from sqlalchemy import func
         
         stmt = select(func.max(TestRun.run_number)).where(
-            TestRun.organization_id == organization_id
+            TestRun.workspace_id == workspace_id
         )
         result = await self.session.execute(stmt)
         max_number = result.scalar_one_or_none()
@@ -269,11 +269,11 @@ class ScheduleService:
     async def toggle_schedule(
         self,
         schedule_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         is_active: bool,
     ) -> Schedule | None:
         """Toggle schedule active status."""
-        schedule = await self.get_schedule(schedule_id, organization_id)
+        schedule = await self.get_schedule(schedule_id, workspace_id)
         if not schedule:
             return None
         
@@ -294,3 +294,6 @@ class ScheduleService:
         
         logger.info(f"Schedule '{schedule.name}' (ID: {schedule.id}) active={is_active}")
         return schedule
+
+
+

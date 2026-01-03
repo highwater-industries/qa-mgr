@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
-from api.dependencies import get_current_organization
+from api.dependencies import get_current_workspace
 from api.services.test_catalog import TestCatalogService
 from api.schemas.test_catalog import (
     TestCatalogListItem,
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/test-catalog", tags=["test-catalog"])
 )
 async def search_test_catalog(
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
     project_id: UUID | None = Query(default=None),
     suite_id: UUID | None = Query(default=None),
     search: str | None = Query(default=None, description="Search in name, test_id, file_path, description"),
@@ -55,7 +55,7 @@ async def search_test_catalog(
     skip = (page - 1) * page_size
     
     items, total = await service.search_tests(
-        organization_id=organization_id,
+        workspace_id=workspace_id,
         project_id=project_id,
         suite_id=suite_id,
         search=search,
@@ -92,7 +92,7 @@ async def search_test_catalog(
 async def get_test_detail(
     test_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """
     Get detailed information about a specific test.
@@ -101,7 +101,7 @@ async def get_test_detail(
     for GitHub and VSCode.
     """
     service = TestCatalogService(session)
-    test = await service.get_test_detail(test_id, organization_id)
+    test = await service.get_test_detail(test_id, workspace_id)
     
     if not test:
         raise HTTPException(
@@ -119,7 +119,7 @@ async def get_test_detail(
 async def get_test_execution_history(
     test_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
     limit: int = Query(default=50, ge=1, le=200, description="Number of recent executions to return"),
 ):
     """
@@ -130,7 +130,7 @@ async def get_test_execution_history(
     service = TestCatalogService(session)
     
     # Verify test exists
-    test = await service.get_test_detail(test_id, organization_id)
+    test = await service.get_test_detail(test_id, workspace_id)
     if not test:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -139,7 +139,7 @@ async def get_test_execution_history(
     
     history = await service.get_execution_history(
         test_id,
-        organization_id,
+        workspace_id,
         limit,
     )
     
@@ -152,7 +152,7 @@ async def get_test_execution_history(
 )
 async def get_catalog_statistics(
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
     project_id: UUID | None = Query(default=None, description="Filter statistics to a specific project"),
 ):
     """
@@ -161,6 +161,9 @@ async def get_catalog_statistics(
     Provides overview of total tests, execution rates, pass rates, etc.
     """
     service = TestCatalogService(session)
-    stats = await service.get_statistics(organization_id, project_id)
+    stats = await service.get_statistics(workspace_id, project_id)
     
     return stats
+
+
+

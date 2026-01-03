@@ -28,7 +28,7 @@ class ProjectUpdateRequest(BaseModel):
 class ProjectResponse(BaseModel):
     """Project response."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     name: str
     description: str | None
     repository_url: str | None
@@ -61,3 +61,6 @@ class ProjectListItem(BaseModel):
     created_at: datetime
     
     model_config = {"from_attributes": True}
+
+
+

@@ -29,14 +29,14 @@ class WorkerHealthService:
     
     async def check_worker_health(
         self,
-        organization_id: UUID | None = None,
+        workspace_id: UUID | None = None,
         heartbeat_timeout_seconds: int = DEFAULT_HEARTBEAT_TIMEOUT,
     ) -> dict[str, Any]:
         """
         Check all workers and mark stale ones as offline.
         
         Args:
-            organization_id: Optional filter by organization. If None, checks all orgs.
+            workspace_id: Optional filter by organization. If None, checks all orgs.
             heartbeat_timeout_seconds: Seconds since last heartbeat before marking offline.
             
         Returns:
@@ -55,8 +55,8 @@ class WorkerHealthService:
             ),
         ]
         
-        if organization_id:
-            conditions.append(TestWorker.organization_id == organization_id)
+        if workspace_id:
+            conditions.append(TestWorker.workspace_id == workspace_id)
         
         # Find stale workers
         stmt = select(TestWorker).where(and_(*conditions))
@@ -96,7 +96,7 @@ class WorkerHealthService:
     
     async def get_health_summary(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> dict[str, Any]:
         """
         Get a summary of worker health for an organization.
@@ -107,7 +107,7 @@ class WorkerHealthService:
         # Count workers by status
         stmt = select(TestWorker).where(
             and_(
-                TestWorker.organization_id == organization_id,
+                TestWorker.workspace_id == workspace_id,
                 TestWorker.deleted_at.is_(None),
             )
         )
@@ -162,7 +162,7 @@ class WorkerHealthService:
             })
         
         return {
-            "organization_id": str(organization_id),
+            "workspace_id": str(workspace_id),
             "checked_at": now.isoformat(),
             "summary": {
                 "total": total,
@@ -178,7 +178,7 @@ class WorkerHealthService:
     async def get_worker_health(
         self,
         worker_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> dict[str, Any] | None:
         """
         Get detailed health info for a specific worker.
@@ -189,7 +189,7 @@ class WorkerHealthService:
         stmt = select(TestWorker).where(
             and_(
                 TestWorker.id == worker_id,
-                TestWorker.organization_id == organization_id,
+                TestWorker.workspace_id == workspace_id,
                 TestWorker.deleted_at.is_(None),
             )
         )
@@ -226,3 +226,6 @@ class WorkerHealthService:
             "max_concurrent_runs": worker.max_concurrent_runs,
             "worker_config": worker.worker_config,
         }
+
+
+

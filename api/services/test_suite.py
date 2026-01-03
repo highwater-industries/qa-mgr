@@ -25,13 +25,13 @@ class TestSuiteService:
     async def create_suite(
         self,
         data: TestSuiteCreateRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestSuite:
         """Create a new test suite."""
         # Verify project exists and belongs to organization
         project = await self.project_repository.get_by_id_and_org(
             data.project_id,
-            organization_id,
+            workspace_id,
         )
         if not project:
             raise ValueError("Project not found")
@@ -40,7 +40,7 @@ class TestSuiteService:
         if data.parent_id:
             parent = await self.repository.get_by_id_and_org(
                 data.parent_id,
-                organization_id,
+                workspace_id,
             )
             if not parent:
                 raise ValueError("Parent suite not found")
@@ -51,13 +51,13 @@ class TestSuiteService:
         existing = await self.repository.get_by_path(
             data.path,
             data.project_id,
-            organization_id,
+            workspace_id,
         )
         if existing:
             raise ValueError("A suite with this path already exists in the project")
         
         suite = TestSuite(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             **data.model_dump(),
         )
         return await self.repository.create(suite)
@@ -65,24 +65,24 @@ class TestSuiteService:
     async def get_suite(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestSuite | None:
         """Get a test suite by ID."""
-        return await self.repository.get_by_id_and_org(suite_id, organization_id)
+        return await self.repository.get_by_id_and_org(suite_id, workspace_id)
     
     async def get_suite_detail(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestSuiteDetailResponse | None:
         """Get detailed test suite information."""
-        suite = await self.get_suite(suite_id, organization_id)
+        suite = await self.get_suite(suite_id, workspace_id)
         if not suite:
             return None
         
         # Get counts
-        test_count = await self.repository.get_test_count(suite_id, organization_id)
-        child_count = await self.repository.get_child_count(suite_id, organization_id)
+        test_count = await self.repository.get_test_count(suite_id, workspace_id)
+        child_count = await self.repository.get_child_count(suite_id, workspace_id)
         
         return TestSuiteDetailResponse(
             **suite.model_dump(),
@@ -93,7 +93,7 @@ class TestSuiteService:
     async def list_suites(
         self,
         project_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         parent_id: UUID | None = None,
         tags: list[str] | None = None,
     ) -> list[TestSuite]:
@@ -101,14 +101,14 @@ class TestSuiteService:
         # Verify project exists
         project = await self.project_repository.get_by_id_and_org(
             project_id,
-            organization_id,
+            workspace_id,
         )
         if not project:
             raise ValueError("Project not found")
         
         return await self.repository.get_by_project(
             project_id,
-            organization_id,
+            workspace_id,
             parent_id,
             tags,
         )
@@ -116,15 +116,15 @@ class TestSuiteService:
     async def get_suite_tree(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestSuiteTreeNode | None:
         """Get a test suite with its full child hierarchy."""
-        suite = await self.get_suite(suite_id, organization_id)
+        suite = await self.get_suite(suite_id, workspace_id)
         if not suite:
             return None
         
         async def build_tree(s: TestSuite) -> TestSuiteTreeNode:
-            children = await self.repository.get_children(s.id, organization_id)
+            children = await self.repository.get_children(s.id, workspace_id)
             child_nodes = []
             for child in children:
                 child_nodes.append(await build_tree(child))
@@ -140,10 +140,10 @@ class TestSuiteService:
         self,
         suite_id: UUID,
         data: TestSuiteUpdateRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestSuite | None:
         """Update a test suite."""
-        suite = await self.get_suite(suite_id, organization_id)
+        suite = await self.get_suite(suite_id, workspace_id)
         if not suite:
             return None
         
@@ -152,33 +152,36 @@ class TestSuiteService:
             existing = await self.repository.get_by_path(
                 data.path,
                 suite.project_id,
-                organization_id,
+                workspace_id,
             )
             if existing and existing.id != suite_id:
                 raise ValueError("A suite with this path already exists in the project")
         
         update_data = data.model_dump(exclude_unset=True)
-        return await self.repository.update_by_id_and_org(suite_id, organization_id, update_data)
+        return await self.repository.update_by_id_and_org(suite_id, workspace_id, update_data)
     
     async def delete_suite(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Delete a test suite (soft delete)."""
-        suite = await self.get_suite(suite_id, organization_id)
+        suite = await self.get_suite(suite_id, workspace_id)
         if not suite:
             return False
         
         # Check if suite has children
-        child_count = await self.repository.get_child_count(suite_id, organization_id)
+        child_count = await self.repository.get_child_count(suite_id, workspace_id)
         if child_count > 0:
             raise ValueError("Cannot delete a suite with child suites")
         
         # Check if suite has test cases
-        test_count = await self.repository.get_test_count(suite_id, organization_id)
+        test_count = await self.repository.get_test_count(suite_id, workspace_id)
         if test_count > 0:
             raise ValueError("Cannot delete a suite with test cases")
         
-        await self.repository.delete_by_id_and_org(suite_id, organization_id)
+        await self.repository.delete_by_id_and_org(suite_id, workspace_id)
         return True
+
+
+

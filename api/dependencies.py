@@ -70,7 +70,7 @@ async def get_current_user_from_token(
     return user
 
 
-async def get_current_organization(
+async def get_current_workspace(
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UUID:
@@ -78,7 +78,7 @@ async def get_current_organization(
     Get current organization ID from authenticated user's organization context.
     
     Priority order:
-    1. User's explicitly selected current_organization_id (if set and still valid)
+    1. User's explicitly selected current_workspace_id (if set and still valid)
     2. User's most recently granted organization
     
     For regular users: Returns their assigned organization.
@@ -86,19 +86,19 @@ async def get_current_organization(
     
     Raises 403 if user has no organization assignments.
     """
-    from database.models.organization import UserOrganizationRole
+    from database.models.workspace import UserWorkspaceRole
     
     # Check if user has a current organization set
-    if current_user.current_organization_id:
+    if current_user.current_workspace_id:
         # Verify they still have access to it
         result = await db.execute(
-            select(UserOrganizationRole)
+            select(UserWorkspaceRole)
             .where(
                 and_(
-                    UserOrganizationRole.user_id == current_user.id,
-                    UserOrganizationRole.organization_id == current_user.current_organization_id,
-                    UserOrganizationRole.revoked_at.is_(None),
-                    UserOrganizationRole.deleted_at.is_(None),
+                    UserWorkspaceRole.user_id == current_user.id,
+                    UserWorkspaceRole.workspace_id == current_user.current_workspace_id,
+                    UserWorkspaceRole.revoked_at.is_(None),
+                    UserWorkspaceRole.deleted_at.is_(None),
                 )
             )
             .limit(1)
@@ -108,22 +108,22 @@ async def get_current_organization(
         
         if organization_role:
             # Current organization is still valid
-            return current_user.current_organization_id
+            return current_user.current_workspace_id
         
         # Current organization is no longer valid, clear it and fall through
         # (Will be cleared on next switch-organization call or updated by background job)
     
     # Fall back to most recently granted organization
     result = await db.execute(
-        select(UserOrganizationRole)
+        select(UserWorkspaceRole)
         .where(
             and_(
-                UserOrganizationRole.user_id == current_user.id,
-                UserOrganizationRole.revoked_at.is_(None),
-                UserOrganizationRole.deleted_at.is_(None),
+                UserWorkspaceRole.user_id == current_user.id,
+                UserWorkspaceRole.revoked_at.is_(None),
+                UserWorkspaceRole.deleted_at.is_(None),
             )
         )
-        .order_by(UserOrganizationRole.granted_at.desc())
+        .order_by(UserWorkspaceRole.granted_at.desc())
         .limit(1)
     )
     
@@ -135,11 +135,11 @@ async def get_current_organization(
             detail="User not assigned to any organization. Please contact your administrator.",
         )
     
-    return organization_role.organization_id
+    return organization_role.workspace_id
 
 
 async def verify_organization_access(
-    organization_id: UUID,
+    workspace_id: UUID,
     current_user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UUID:
@@ -150,23 +150,23 @@ async def verify_organization_access(
     - User is superuser (cross-organization access)
     - User has active role in the organization
     
-    Returns organization_id if access granted, raises 403 otherwise.
+    Returns workspace_id if access granted, raises 403 otherwise.
     """
-    from database.models.organization import UserOrganizationRole
+    from database.models.workspace import UserWorkspaceRole
     
     # Superusers have access to all organizations
     if current_user.is_superuser:
-        return organization_id
+        return workspace_id
     
     # Check if user has role in this organization
     result = await db.execute(
-        select(UserOrganizationRole)
+        select(UserWorkspaceRole)
         .where(
             and_(
-                UserOrganizationRole.user_id == current_user.id,
-                UserOrganizationRole.organization_id == organization_id,
-                UserOrganizationRole.revoked_at.is_(None),
-                UserOrganizationRole.deleted_at.is_(None),
+                UserWorkspaceRole.user_id == current_user.id,
+                UserWorkspaceRole.workspace_id == workspace_id,
+                UserWorkspaceRole.revoked_at.is_(None),
+                UserWorkspaceRole.deleted_at.is_(None),
             )
         )
         .limit(1)
@@ -180,4 +180,7 @@ async def verify_organization_access(
             detail="Access denied to this organization",
         )
     
-    return organization_id
+    return workspace_id
+
+
+

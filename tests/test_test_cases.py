@@ -70,7 +70,7 @@ async def test_list_test_cases_active_only(client: AsyncClient, auth_headers, te
     from database.models.test_models import TestCase
     
     inactive_case = TestCase(
-        organization_id=test_suite.organization_id,
+        workspace_id=test_suite.workspace_id,
         suite_id=test_suite.id,
         name="Inactive Test",
         test_id="tests.inactive::test_inactive",
@@ -245,3 +245,6 @@ async def test_create_test_case_minimal(client: AsyncClient, auth_headers, test_
     assert data["is_automated"] is True
     assert data["is_flaky"] is False
     assert data["tags"] == []
+
+
+

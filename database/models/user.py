@@ -50,9 +50,9 @@ class User(BaseModel, table=True):
     is_superuser: bool = Field(default=False)  # Global system admin
     
     # Multi-organization support
-    current_organization_id: UUID | None = Field(
+    current_workspace_id: UUID | None = Field(
         default=None,
-        foreign_key="organizations.id",
+        foreign_key="workspaces.id",
         nullable=True,
     )  # User's currently selected organization (for multi-organization users)
     
@@ -60,9 +60,9 @@ class User(BaseModel, table=True):
     last_login_at: datetime | None = None
     
     # Relationships
-    organization_roles: list["UserOrganizationRole"] = Relationship(
+    workspace_roles: list["UserWorkspaceRole"] = Relationship(
         back_populates="user",
-        sa_relationship_kwargs={"foreign_keys": "UserOrganizationRole.user_id"}
+        sa_relationship_kwargs={"foreign_keys": "UserWorkspaceRole.user_id"}
     )
     
     __table_args__ = (
@@ -123,7 +123,7 @@ class UserDetail(UserPublic):
     
     # Organization roles (optional, loaded on demand)
     class OrganizationRoleInfo(SQLModel):
-        organization_id: UUID
+        workspace_id: UUID
         organization_name: str
         role: str
     
@@ -155,7 +155,7 @@ class Token(SQLModel):
 class TokenPayload(SQLModel):
     """JWT token payload."""
     sub: UUID  # user_id (subject)
-    organization_id: UUID | None = None
+    workspace_id: UUID | None = None
     exp: int  # expiration timestamp
     iat: int  # issued at timestamp
     type: str = "access"  # 'access' or 'refresh'
@@ -221,4 +221,6 @@ async def register(
     
     return user  # Auto-converts to UserPublic (excludes hashed_password)
 """
+
+
 

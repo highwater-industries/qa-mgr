@@ -36,8 +36,8 @@ class APIClient:
         }
         if self.config.api_key:
             headers["X-API-Key"] = self.config.api_key
-        if self.config.organization_id:
-            headers["X-Organization-ID"] = self.config.organization_id
+        if self.config.workspace_id:
+            headers["X-Workspace-ID"] = self.config.workspace_id
         return headers
     
     async def register(self) -> dict[str, Any]:
@@ -163,3 +163,5 @@ class APIClient:
         # Placeholder for future implementation
         logger.debug(f"Would upload results for test run {test_run_id}")
         return None
+
+

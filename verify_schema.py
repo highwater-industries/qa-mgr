@@ -11,3 +11,5 @@ for field_name, field_info in fields.items():
 schema = UserLogin.model_json_schema()
 print("\nJSON Schema:")
 print(json.dumps(schema, indent=2))
+
+

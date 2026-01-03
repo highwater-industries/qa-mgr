@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
-from api.dependencies import get_current_organization
+from api.dependencies import get_current_workspace
 from api.services.test_case import TestCaseService
 from api.schemas.test_case import (
     TestCaseCreateRequest,
@@ -28,13 +28,13 @@ router = APIRouter(prefix="/test-cases", tags=["test-cases"])
 async def create_test_case(
     data: TestCaseCreateRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Create a new test case."""
     service = TestCaseService(session)
     
     try:
-        test_case = await service.create_test_case(data, organization_id)
+        test_case = await service.create_test_case(data, workspace_id)
         await session.commit()
         await session.refresh(test_case)
         return test_case
@@ -52,7 +52,7 @@ async def create_test_case(
 async def list_test_cases(
     suite_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
     active_only: bool = Query(False),
     tags: list[str] | None = Query(None, description="Filter by tags (returns test cases with ANY of these tags)"),
 ):
@@ -62,7 +62,7 @@ async def list_test_cases(
     try:
         test_cases = await service.list_test_cases(
             suite_id, 
-            organization_id, 
+            workspace_id, 
             active_only,
             tags,
         )
@@ -81,11 +81,11 @@ async def list_test_cases(
 async def get_test_case(
     test_case_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Get a test case by ID with detailed information."""
     service = TestCaseService(session)
-    test_case = await service.get_test_case_detail(test_case_id, organization_id)
+    test_case = await service.get_test_case_detail(test_case_id, workspace_id)
     
     if not test_case:
         raise HTTPException(
@@ -104,7 +104,7 @@ async def update_test_case(
     test_case_id: UUID,
     data: TestCaseUpdateRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Update a test case."""
     service = TestCaseService(session)
@@ -112,7 +112,7 @@ async def update_test_case(
     test_case = await service.update_test_case(
         test_case_id, 
         data, 
-        organization_id,
+        workspace_id,
     )
     if not test_case:
         raise HTTPException(
@@ -132,12 +132,12 @@ async def update_test_case(
 async def delete_test_case(
     test_case_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Delete a test case (soft delete)."""
     service = TestCaseService(session)
     
-    deleted = await service.delete_test_case(test_case_id, organization_id)
+    deleted = await service.delete_test_case(test_case_id, workspace_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -145,3 +145,6 @@ async def delete_test_case(
         )
     
     await session.commit()
+
+
+

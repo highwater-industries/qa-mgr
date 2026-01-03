@@ -18,13 +18,13 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
     async def get_by_id_and_org(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestSuite | None:
         """Get a test suite by ID, filtering by organization."""
         stmt = select(TestSuite).where(
             and_(
                 TestSuite.id == suite_id,
-                TestSuite.organization_id == organization_id,
+                TestSuite.workspace_id == workspace_id,
                 TestSuite.deleted_at.is_(None),
             )
         )
@@ -34,14 +34,14 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
     async def get_by_project(
         self,
         project_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         parent_id: UUID | None = None,
         tags: list[str] | None = None,
     ) -> list[TestSuite]:
         """Get all test suites for a project, optionally filtered by parent or tags."""
         stmt = select(TestSuite).where(
             and_(
-                TestSuite.organization_id == organization_id,
+                TestSuite.workspace_id == workspace_id,
                 TestSuite.project_id == project_id,
                 TestSuite.deleted_at.is_(None),
             )
@@ -64,12 +64,12 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
         self,
         path: str,
         project_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestSuite | None:
         """Get a test suite by its path."""
         stmt = select(TestSuite).where(
             and_(
-                TestSuite.organization_id == organization_id,
+                TestSuite.workspace_id == workspace_id,
                 TestSuite.project_id == project_id,
                 TestSuite.path == path,
                 TestSuite.deleted_at.is_(None),
@@ -81,12 +81,12 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
     async def get_children(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> list[TestSuite]:
         """Get all child suites of a parent suite."""
         stmt = select(TestSuite).where(
             and_(
-                TestSuite.organization_id == organization_id,
+                TestSuite.workspace_id == workspace_id,
                 TestSuite.parent_id == suite_id,
                 TestSuite.deleted_at.is_(None),
             )
@@ -97,12 +97,12 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
     async def get_test_count(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> int:
         """Get count of test cases in a suite."""
         stmt = select(func.count(TestCase.id)).where(
             and_(
-                TestCase.organization_id == organization_id,
+                TestCase.workspace_id == workspace_id,
                 TestCase.suite_id == suite_id,
                 TestCase.deleted_at.is_(None),
             )
@@ -113,12 +113,12 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
     async def get_child_count(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> int:
         """Get count of child suites."""
         stmt = select(func.count(TestSuite.id)).where(
             and_(
-                TestSuite.organization_id == organization_id,
+                TestSuite.workspace_id == workspace_id,
                 TestSuite.parent_id == suite_id,
                 TestSuite.deleted_at.is_(None),
             )
@@ -129,11 +129,11 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
     async def update_by_id_and_org(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         update_data: dict,
     ) -> TestSuite | None:
         """Update a test suite by ID and organization."""
-        suite = await self.get_by_id_and_org(suite_id, organization_id)
+        suite = await self.get_by_id_and_org(suite_id, workspace_id)
         if not suite:
             return None
         
@@ -147,15 +147,18 @@ class TestSuiteRepository(BaseRepository[TestSuite]):
     async def delete_by_id_and_org(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Soft delete a test suite by ID and organization."""
         from datetime import datetime, timezone
         
-        suite = await self.get_by_id_and_org(suite_id, organization_id)
+        suite = await self.get_by_id_and_org(suite_id, workspace_id)
         if not suite:
             return False
         
         suite.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.db.commit()
         return True
+
+
+

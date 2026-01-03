@@ -18,13 +18,13 @@ class TestRunRepository(BaseRepository[TestRun]):
     async def get_by_id_and_org(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestRun | None:
         """Get a test run by ID, filtering by organization."""
         stmt = select(TestRun).where(
             and_(
                 TestRun.id == run_id,
-                TestRun.organization_id == organization_id,
+                TestRun.workspace_id == workspace_id,
                 TestRun.deleted_at.is_(None),
             )
         )
@@ -33,7 +33,7 @@ class TestRunRepository(BaseRepository[TestRun]):
     
     async def list_by_organization(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
         project_id: UUID | None = None,
@@ -43,7 +43,7 @@ class TestRunRepository(BaseRepository[TestRun]):
         """List test runs for an organization with optional filters."""
         stmt = select(TestRun).where(
             and_(
-                TestRun.organization_id == organization_id,
+                TestRun.workspace_id == workspace_id,
                 TestRun.deleted_at.is_(None),
             )
         )
@@ -62,10 +62,10 @@ class TestRunRepository(BaseRepository[TestRun]):
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
     
-    async def get_next_run_number(self, organization_id: UUID) -> int:
+    async def get_next_run_number(self, workspace_id: UUID) -> int:
         """Get the next run number for an organization."""
         stmt = select(func.coalesce(func.max(TestRun.run_number), 0)).where(
-            TestRun.organization_id == organization_id
+            TestRun.workspace_id == workspace_id
         )
         result = await self.db.execute(stmt)
         max_num = result.scalar() or 0
@@ -74,12 +74,12 @@ class TestRunRepository(BaseRepository[TestRun]):
     async def get_by_run_number(
         self,
         run_number: int,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestRun | None:
         """Get a test run by its run number."""
         stmt = select(TestRun).where(
             and_(
-                TestRun.organization_id == organization_id,
+                TestRun.workspace_id == workspace_id,
                 TestRun.run_number == run_number,
                 TestRun.deleted_at.is_(None),
             )
@@ -90,14 +90,14 @@ class TestRunRepository(BaseRepository[TestRun]):
     async def get_by_project(
         self,
         project_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
     ) -> list[TestRun]:
         """Get all test runs for a project."""
         stmt = select(TestRun).where(
             and_(
-                TestRun.organization_id == organization_id,
+                TestRun.workspace_id == workspace_id,
                 TestRun.project_id == project_id,
                 TestRun.deleted_at.is_(None),
             )
@@ -109,14 +109,14 @@ class TestRunRepository(BaseRepository[TestRun]):
     async def get_by_suite(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         skip: int = 0,
         limit: int = 100,
     ) -> list[TestRun]:
         """Get all test runs for a test suite."""
         stmt = select(TestRun).where(
             and_(
-                TestRun.organization_id == organization_id,
+                TestRun.workspace_id == workspace_id,
                 TestRun.suite_id == suite_id,
                 TestRun.deleted_at.is_(None),
             )
@@ -128,11 +128,11 @@ class TestRunRepository(BaseRepository[TestRun]):
     async def update_by_id_and_org(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         **kwargs,
     ) -> TestRun | None:
         """Update a test run by ID, filtering by organization."""
-        run = await self.get_by_id_and_org(run_id, organization_id)
+        run = await self.get_by_id_and_org(run_id, workspace_id)
         if not run:
             return None
         
@@ -149,10 +149,10 @@ class TestRunRepository(BaseRepository[TestRun]):
     async def delete_by_id_and_org(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Soft delete a test run by ID, filtering by organization."""
-        run = await self.get_by_id_and_org(run_id, organization_id)
+        run = await self.get_by_id_and_org(run_id, workspace_id)
         if not run:
             return False
         
@@ -164,12 +164,12 @@ class TestRunRepository(BaseRepository[TestRun]):
     async def start_run(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         worker_id: UUID | None = None,
         total_tests: int | None = None,
     ) -> TestRun | None:
         """Mark a test run as started."""
-        run = await self.get_by_id_and_org(run_id, organization_id)
+        run = await self.get_by_id_and_org(run_id, workspace_id)
         if not run:
             return None
         
@@ -189,7 +189,7 @@ class TestRunRepository(BaseRepository[TestRun]):
     async def complete_run(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         status: str,
         total_tests: int,
         passed_tests: int,
@@ -202,7 +202,7 @@ class TestRunRepository(BaseRepository[TestRun]):
         artifacts: dict | None = None,
     ) -> TestRun | None:
         """Mark a test run as completed with results."""
-        run = await self.get_by_id_and_org(run_id, organization_id)
+        run = await self.get_by_id_and_org(run_id, workspace_id)
         if not run:
             return None
         
@@ -237,10 +237,10 @@ class TestRunRepository(BaseRepository[TestRun]):
     async def update_aggregates(
         self,
         run_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestRun | None:
         """Update test run aggregates from its results."""
-        run = await self.get_by_id_and_org(run_id, organization_id)
+        run = await self.get_by_id_and_org(run_id, workspace_id)
         if not run:
             return None
         
@@ -273,3 +273,6 @@ class TestRunRepository(BaseRepository[TestRun]):
         await self.db.commit()
         await self.db.refresh(run)
         return run
+
+
+

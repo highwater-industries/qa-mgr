@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class UserOrganizationAssignRequest(BaseModel):
     """Request to assign user to organization."""
-    organization_id: UUID
+    workspace_id: UUID
     role: str = Field(
         default="member",
         description="Role in organization: admin, member, viewer",
@@ -15,12 +15,12 @@ class UserOrganizationAssignRequest(BaseModel):
 
 class SwitchOrganizationRequest(BaseModel):
     """Request to switch user's current organization."""
-    organization_id: UUID
+    workspace_id: UUID
 
 
 class UserOrganizationInfo(BaseModel):
     """Information about a user's organization assignment."""
-    organization_id: UUID
+    workspace_id: UUID
     organization_name: str
     organization_slug: str
     role: str
@@ -33,11 +33,14 @@ class UserOrganizationInfo(BaseModel):
 class UserOrganizationsListResponse(BaseModel):
     """List of user's organizations."""
     organizations: list[UserOrganizationInfo]
-    current_organization_id: UUID | None
+    current_workspace_id: UUID | None
 
 
-class SwitchOrganizationResponse(BaseModel):
+class SwitchWorkspaceResponse(BaseModel):
     """Response after switching organization."""
-    current_organization_id: UUID
+    current_workspace_id: UUID
     organization_name: str
     message: str = "Organization switched successfully"
+
+
+

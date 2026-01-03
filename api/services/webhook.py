@@ -23,7 +23,7 @@ class WebhookService:
     async def process_jenkins_results(
         self,
         request: JenkinsResultsWebhookRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> tuple[TestRun, int]:
         """
         Process Jenkins test results webhook.
@@ -32,24 +32,24 @@ class WebhookService:
         """
         # Find or create project
         project = await self._find_or_create_project(
-            organization_id,
+            workspace_id,
             request.project_name or request.jenkins.job_name,
             request.repository.url,
         )
         
         # Find or create suite
         suite = await self._find_or_create_suite(
-            organization_id,
+            workspace_id,
             project.id,
             request.suite_name or "Default Suite",
         )
         
         # Get next run number
-        run_number = await self.run_repo.get_next_run_number(organization_id)
+        run_number = await self.run_repo.get_next_run_number(workspace_id)
         
         # Create test run
         test_run = TestRun(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             project_id=project.id,
             suite_id=suite.id,
             name=f"Jenkins Build #{request.jenkins.build_number}",
@@ -84,7 +84,7 @@ class WebhookService:
         for result_data in request.results:
             # Find or create test case
             test_case = await self._find_or_create_test_case(
-                organization_id,
+                workspace_id,
                 suite.id,
                 result_data.test_id,
                 result_data.test_name,
@@ -93,7 +93,7 @@ class WebhookService:
             
             # Create test result
             test_result = TestResult(
-                organization_id=organization_id,
+                workspace_id=workspace_id,
                 test_run_id=test_run.id,
                 test_case_id=test_case.id,
                 test_id=result_data.test_id,
@@ -118,7 +118,7 @@ class WebhookService:
     
     async def _find_or_create_project(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         name: str,
         repository_url: str | None,
     ) -> Project:
@@ -126,7 +126,7 @@ class WebhookService:
         # Try to find by repository URL first
         if repository_url:
             stmt = select(Project).where(
-                Project.organization_id == organization_id,
+                Project.workspace_id == workspace_id,
                 Project.repository_url == repository_url,
                 Project.deleted_at.is_(None),
             )
@@ -137,7 +137,7 @@ class WebhookService:
         
         # Try to find by name
         stmt = select(Project).where(
-            Project.organization_id == organization_id,
+            Project.workspace_id == workspace_id,
             Project.name == name,
             Project.deleted_at.is_(None),
         )
@@ -148,7 +148,7 @@ class WebhookService:
         
         # Create new project
         project = Project(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             name=name,
             description=f"Auto-created from Jenkins webhook",
             repository_url=repository_url,
@@ -160,13 +160,13 @@ class WebhookService:
     
     async def _find_or_create_suite(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         project_id: UUID,
         name: str,
     ) -> TestSuite:
         """Find existing suite or create new one."""
         stmt = select(TestSuite).where(
-            TestSuite.organization_id == organization_id,
+            TestSuite.workspace_id == workspace_id,
             TestSuite.project_id == project_id,
             TestSuite.name == name,
             TestSuite.deleted_at.is_(None),
@@ -178,7 +178,7 @@ class WebhookService:
         
         # Create new suite
         suite = TestSuite(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             project_id=project_id,
             name=name,
             description="Auto-created from Jenkins webhook",
@@ -192,7 +192,7 @@ class WebhookService:
     
     async def _find_or_create_test_case(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         suite_id: UUID,
         test_id: str,
         test_name: str,
@@ -200,7 +200,7 @@ class WebhookService:
     ) -> TestCase:
         """Find existing test case or create new one."""
         stmt = select(TestCase).where(
-            TestCase.organization_id == organization_id,
+            TestCase.workspace_id == workspace_id,
             TestCase.suite_id == suite_id,
             TestCase.test_id == test_id,
             TestCase.deleted_at.is_(None),
@@ -214,7 +214,7 @@ class WebhookService:
         
         # Create new test case
         test_case = TestCase(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             suite_id=suite_id,
             test_id=test_id,
             name=test_name,
@@ -224,3 +224,6 @@ class WebhookService:
         await self.db.commit()
         await self.db.refresh(test_case)
         return test_case
+
+
+

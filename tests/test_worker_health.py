@@ -29,14 +29,14 @@ class TestWorkerHealthService:
     async def test_check_worker_health_marks_stale_workers_offline(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
     ):
         """Test that stale workers are marked offline."""
         # Create workers with different heartbeat times
         # Fresh worker - heartbeat 30 seconds ago
         fresh_worker = TestWorker(
             id=uuid4(),
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             name="fresh-worker",
             worker_type="celery",
             hostname="fresh.local",
@@ -48,7 +48,7 @@ class TestWorkerHealthService:
         # Stale worker - heartbeat 5 minutes ago
         stale_worker = TestWorker(
             id=uuid4(),
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             name="stale-worker",
             worker_type="celery",
             hostname="stale.local",
@@ -60,7 +60,7 @@ class TestWorkerHealthService:
         # Already offline worker
         offline_worker = TestWorker(
             id=uuid4(),
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             name="offline-worker",
             worker_type="celery",
             hostname="offline.local",
@@ -75,7 +75,7 @@ class TestWorkerHealthService:
         # Run health check with 2 minute timeout
         service = WorkerHealthService(db_session)
         result = await service.check_worker_health(
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             heartbeat_timeout_seconds=120,
         )
         
@@ -99,13 +99,13 @@ class TestWorkerHealthService:
     async def test_check_worker_health_handles_null_heartbeat(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
     ):
         """Test that workers with no heartbeat are marked offline."""
         # Worker that never sent heartbeat
         no_heartbeat_worker = TestWorker(
             id=uuid4(),
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             name="no-heartbeat-worker",
             worker_type="celery",
             hostname="nohb.local",
@@ -119,7 +119,7 @@ class TestWorkerHealthService:
         
         service = WorkerHealthService(db_session)
         result = await service.check_worker_health(
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             heartbeat_timeout_seconds=120,
         )
         
@@ -133,14 +133,14 @@ class TestWorkerHealthService:
     async def test_get_health_summary(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
     ):
         """Test getting health summary for an organization."""
         # Create various workers
         workers = [
             TestWorker(
                 id=uuid4(),
-                organization_id=test_organization.id,
+                workspace_id=test_workspace.id,
                 name="idle-worker",
                 worker_type="celery",
                 hostname="idle.local",
@@ -152,7 +152,7 @@ class TestWorkerHealthService:
             ),
             TestWorker(
                 id=uuid4(),
-                organization_id=test_organization.id,
+                workspace_id=test_workspace.id,
                 name="busy-worker",
                 worker_type="celery",
                 hostname="busy.local",
@@ -164,7 +164,7 @@ class TestWorkerHealthService:
             ),
             TestWorker(
                 id=uuid4(),
-                organization_id=test_organization.id,
+                workspace_id=test_workspace.id,
                 name="offline-worker",
                 worker_type="celery",
                 hostname="offline.local",
@@ -176,7 +176,7 @@ class TestWorkerHealthService:
             ),
             TestWorker(
                 id=uuid4(),
-                organization_id=test_organization.id,
+                workspace_id=test_workspace.id,
                 name="stale-worker",
                 worker_type="celery",
                 hostname="stale.local",
@@ -192,7 +192,7 @@ class TestWorkerHealthService:
         await db_session.commit()
         
         service = WorkerHealthService(db_session)
-        result = await service.get_health_summary(test_organization.id)
+        result = await service.get_health_summary(test_workspace.id)
         
         assert result["summary"]["total"] == 4
         assert result["summary"]["online"] == 3  # idle, busy, stale (status not offline)
@@ -208,12 +208,12 @@ class TestWorkerHealthService:
     async def test_get_worker_health(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
     ):
         """Test getting detailed health for a specific worker."""
         worker = TestWorker(
             id=uuid4(),
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             name="test-worker",
             worker_type="celery",
             hostname="test.local",
@@ -230,7 +230,7 @@ class TestWorkerHealthService:
         await db_session.commit()
         
         service = WorkerHealthService(db_session)
-        result = await service.get_worker_health(worker.id, test_organization.id)
+        result = await service.get_worker_health(worker.id, test_workspace.id)
         
         assert result is not None
         assert result["name"] == "test-worker"
@@ -244,11 +244,11 @@ class TestWorkerHealthService:
     async def test_get_worker_health_not_found(
         self,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
     ):
         """Test getting health for non-existent worker returns None."""
         service = WorkerHealthService(db_session)
-        result = await service.get_worker_health(uuid4(), test_organization.id)
+        result = await service.get_worker_health(uuid4(), test_workspace.id)
         
         assert result is None
 
@@ -266,13 +266,13 @@ class TestWorkerHealthEndpoints:
         client: AsyncClient,
         auth_headers: dict,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
     ):
         """Test GET /workers/health/summary endpoint."""
         # Create a test worker
         worker = TestWorker(
             id=uuid4(),
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             name="health-test-worker",
             worker_type="celery",
             hostname="healthtest.local",
@@ -303,12 +303,12 @@ class TestWorkerHealthEndpoints:
         client: AsyncClient,
         auth_headers: dict,
         db_session: AsyncSession,
-        test_organization,
+        test_workspace,
     ):
         """Test GET /workers/health/{worker_id} endpoint."""
         worker = TestWorker(
             id=uuid4(),
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             name="detail-test-worker",
             worker_type="celery",
             hostname="detailtest.local",
@@ -340,7 +340,7 @@ class TestWorkerHealthEndpoints:
         self,
         client: AsyncClient,
         auth_headers: dict,
-        test_organization,
+        test_workspace,
     ):
         """Test GET /workers/health/{worker_id} with invalid ID returns 404."""
         fake_id = uuid4()
@@ -375,3 +375,6 @@ class TestWorkerHealthTask:
         
         schedule = celery_app.conf.beat_schedule["check-worker-health"]
         assert schedule["task"] == "tasks.check_worker_health"
+
+
+

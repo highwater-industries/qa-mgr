@@ -12,7 +12,7 @@ from database.models.worker import TestWorker
 
 
 @pytest.fixture
-async def jq_test_project(client, test_organization, test_user_token):
+async def jq_test_project(client, test_workspace, test_user_token):
     """Create a test project."""
     response = await client.post(
         "/api/v1/projects",
@@ -28,7 +28,7 @@ async def jq_test_project(client, test_organization, test_user_token):
 
 
 @pytest.fixture
-async def jq_test_suite(client, test_organization, test_user_token, jq_test_project):
+async def jq_test_suite(client, test_workspace, test_user_token, jq_test_project):
     """Create a test suite."""
     response = await client.post(
         "/api/v1/test-suites",
@@ -45,7 +45,7 @@ async def jq_test_suite(client, test_organization, test_user_token, jq_test_proj
 
 
 @pytest.fixture
-async def jq_test_worker(client, test_organization, test_user_token):
+async def jq_test_worker(client, test_workspace, test_user_token):
     """Register a test worker."""
     response = await client.post(
         "/api/v1/workers/register",
@@ -65,7 +65,7 @@ async def jq_test_worker(client, test_organization, test_user_token):
 
 @pytest.mark.asyncio
 async def test_create_run_queues_celery_task(
-    client, test_organization, test_user_token, jq_test_project, jq_test_suite, jq_test_worker
+    client, test_workspace, test_user_token, jq_test_project, jq_test_suite, jq_test_worker
 ):
     """Test that creating a test run queues a Celery task."""
     with patch("api.services.test_run.execute_test_run.delay") as mock_delay:
@@ -99,7 +99,7 @@ async def test_create_run_queues_celery_task(
 
 @pytest.mark.asyncio
 async def test_create_run_without_worker(
-    client, test_organization, test_user_token, jq_test_project, jq_test_suite
+    client, test_workspace, test_user_token, jq_test_project, jq_test_suite
 ):
     """Test creating a test run when no workers are available."""
     with patch("api.services.test_run.execute_test_run.delay") as mock_delay:
@@ -127,7 +127,7 @@ async def test_create_run_without_worker(
 
 @pytest.mark.asyncio
 async def test_run_has_celery_task_id(
-    client, test_organization, test_user_token, jq_test_project, jq_test_suite, jq_test_worker
+    client, test_workspace, test_user_token, jq_test_project, jq_test_suite, jq_test_worker
 ):
     """Test that test run has celery_task_id after queueing."""
     with patch("api.services.test_run.execute_test_run.delay") as mock_delay:
@@ -164,7 +164,7 @@ async def test_run_has_celery_task_id(
 
 @pytest.mark.asyncio
 async def test_run_has_queued_at_timestamp(
-    client, test_organization, test_user_token, jq_test_project, jq_test_suite, jq_test_worker
+    client, test_workspace, test_user_token, jq_test_project, jq_test_suite, jq_test_worker
 ):
     """Test that test run has queued_at timestamp."""
     with patch("api.services.test_run.execute_test_run.delay") as mock_delay:
@@ -204,7 +204,7 @@ async def test_run_has_queued_at_timestamp(
 
 @pytest.mark.asyncio
 async def test_worker_selection_for_job(
-    client, test_organization, test_user_token, jq_test_project, jq_test_suite
+    client, test_workspace, test_user_token, jq_test_project, jq_test_suite
 ):
     """Test that worker selection picks available workers."""
     # Register multiple workers
@@ -262,3 +262,6 @@ async def test_worker_selection_for_job(
         worker_id = call_kwargs["worker_id"]
         # Should be one of the two workers
         assert worker_id in [str(worker1.json()["worker_id"]), str(worker2.json()["worker_id"])]
+
+
+

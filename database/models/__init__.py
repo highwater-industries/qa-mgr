@@ -1,6 +1,6 @@
 """Database models."""
 from database.models.base import BaseModel, TenantBaseModel
-from database.models.organization import Organization, UserOrganizationRole
+from database.models.workspace import Workspace, UserWorkspaceRole
 from database.models.user import User
 from database.models.project import Project, TestSuite
 from database.models.test_models import TestCase, TestRun, TestResult
@@ -10,8 +10,8 @@ from database.models.system import APIToken, AuditLog, SystemEvent
 __all__ = [
     "BaseModel",
     "TenantBaseModel",
-    "Organization",
-    "UserOrganizationRole",
+    "Workspace",
+    "UserWorkspaceRole",
     "User",
     "Project",
     "TestSuite",
@@ -25,4 +25,6 @@ __all__ = [
     "AuditLog",
     "SystemEvent",
 ]
+
+
 

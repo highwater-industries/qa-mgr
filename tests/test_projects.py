@@ -5,7 +5,7 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 async def test_create_project_simplified(client: AsyncClient, auth_headers):
-    """Test creating project using simplified endpoint (current organization)."""
+    """Test creating project using simplified endpoint (current Workspace)."""
     response = await client.post(
         "/api/v1/projects",
         json={
@@ -22,7 +22,7 @@ async def test_create_project_simplified(client: AsyncClient, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_list_projects_simplified(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_list_projects_simplified(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test listing projects using simplified endpoint."""
     # Create a test project
     from database.models import Project
@@ -30,7 +30,7 @@ async def test_list_projects_simplified(client: AsyncClient, auth_headers, db_se
     project = Project(
         name="Existing Project",
         description="Already exists",
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         tags=["existing"],
     )
     db_session.add(project)
@@ -44,7 +44,7 @@ async def test_list_projects_simplified(client: AsyncClient, auth_headers, db_se
 
 
 @pytest.mark.asyncio
-async def test_get_project_details(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_get_project_details(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test getting project details."""
     # Create a test project
     from database.models import Project
@@ -52,7 +52,7 @@ async def test_get_project_details(client: AsyncClient, auth_headers, db_session
     project = Project(
         name="Detail Project",
         description="For detail test",
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
     )
     db_session.add(project)
     await db_session.commit()
@@ -66,7 +66,7 @@ async def test_get_project_details(client: AsyncClient, auth_headers, db_session
 
 
 @pytest.mark.asyncio
-async def test_update_project(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_update_project(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test updating project."""
     # Create a test project
     from database.models import Project
@@ -74,7 +74,7 @@ async def test_update_project(client: AsyncClient, auth_headers, db_session, tes
     project = Project(
         name="Original Name",
         description="Original description",
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
     )
     db_session.add(project)
     await db_session.commit()
@@ -95,7 +95,7 @@ async def test_update_project(client: AsyncClient, auth_headers, db_session, tes
 
 
 @pytest.mark.asyncio
-async def test_delete_project(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_delete_project(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test deleting project."""
     # Create a test project
     from database.models import Project
@@ -103,7 +103,7 @@ async def test_delete_project(client: AsyncClient, auth_headers, db_session, tes
     project = Project(
         name="To Delete",
         description="Will be deleted",
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
     )
     db_session.add(project)
     await db_session.commit()
@@ -117,7 +117,7 @@ async def test_delete_project(client: AsyncClient, auth_headers, db_session, tes
 
 
 @pytest.mark.asyncio
-async def test_archive_project(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_archive_project(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test archiving project."""
     # Create a test project
     from database.models import Project
@@ -125,7 +125,7 @@ async def test_archive_project(client: AsyncClient, auth_headers, db_session, te
     project = Project(
         name="To Archive",
         description="Will be archived",
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
     )
     db_session.add(project)
     await db_session.commit()
@@ -143,7 +143,7 @@ async def test_archive_project(client: AsyncClient, auth_headers, db_session, te
 
 
 @pytest.mark.asyncio
-async def test_cannot_create_duplicate_project_name(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_cannot_create_duplicate_project_name(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test that duplicate project names are not allowed in the same organization."""
     # Create first project
     from database.models import Project
@@ -151,7 +151,7 @@ async def test_cannot_create_duplicate_project_name(client: AsyncClient, auth_he
     project = Project(
         name="Unique Name",
         description="First project",
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
     )
     db_session.add(project)
     await db_session.commit()
@@ -169,19 +169,19 @@ async def test_cannot_create_duplicate_project_name(client: AsyncClient, auth_he
 
 
 @pytest.mark.asyncio
-async def test_filter_projects_by_tag(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_filter_projects_by_tag(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test filtering projects by tag."""
     # Create projects with different tags
     from database.models import Project
     
     project1 = Project(
         name="Tagged Project 1",
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         tags=["backend", "api"],
     )
     project2 = Project(
         name="Tagged Project 2",
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         tags=["frontend", "ui"],
     )
     db_session.add_all([project1, project2])
@@ -194,3 +194,6 @@ async def test_filter_projects_by_tag(client: AsyncClient, auth_headers, db_sess
     # Tag filtering might not be implemented yet, just check we get data back
     # If it returns all projects, that's acceptable for now
     assert isinstance(data, list)
+
+
+

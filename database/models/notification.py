@@ -95,8 +95,8 @@ class NotificationConfig(TenantBaseModel, table=True):
     suite: Optional["TestSuite"] = Relationship()  # type: ignore
     
     __table_args__ = (
-        Index("idx_notification_org_project", "organization_id", "project_id"),
-        Index("idx_notification_active", "organization_id", "is_active"),
+        Index("idx_notification_org_project", "workspace_id", "project_id"),
+        Index("idx_notification_active", "workspace_id", "is_active"),
         Index("idx_notification_type", "notification_type"),
     )
 
@@ -187,7 +187,7 @@ class NotificationConfigUpdate(SQLModel):
 class NotificationConfigPublic(NotificationConfigBase):
     """Public response schema for NotificationConfig."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     project_id: UUID | None
     suite_id: UUID | None
     description: str | None
@@ -219,3 +219,5 @@ class NotificationLogPublic(SQLModel):
     created_at: str
     
     model_config = {"from_attributes": True}
+
+

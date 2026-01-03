@@ -88,7 +88,7 @@ async def test_jenkins_webhook_auto_creates_project(
     client: AsyncClient,
     test_user_token: str,
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test that webhook auto-creates project if not found."""
     payload = {
@@ -129,7 +129,7 @@ async def test_jenkins_webhook_auto_creates_project(
     
     # Verify project was created
     stmt = select(Project).where(
-        Project.organization_id == test_org_id,
+        Project.workspace_id == test_ws_id,
         Project.name == "Auto Created Project",
         Project.deleted_at.is_(None),
     )
@@ -144,7 +144,7 @@ async def test_jenkins_webhook_auto_creates_suite(
     client: AsyncClient,
     test_user_token: str,
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
     test_project,
 ):
     """Test that webhook auto-creates test suite if not found."""
@@ -185,7 +185,7 @@ async def test_jenkins_webhook_auto_creates_suite(
     
     # Verify suite was created
     stmt = select(TestSuite).where(
-        TestSuite.organization_id == test_org_id,
+        TestSuite.workspace_id == test_ws_id,
         TestSuite.name == "Auto Created Suite",
         TestSuite.deleted_at.is_(None),
     )
@@ -200,7 +200,7 @@ async def test_jenkins_webhook_auto_creates_test_cases(
     client: AsyncClient,
     test_user_token: str,
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
     test_project,
     test_suite,
 ):
@@ -242,7 +242,7 @@ async def test_jenkins_webhook_auto_creates_test_cases(
     
     # Verify test case was created
     stmt = select(TestCase).where(
-        TestCase.organization_id == test_org_id,
+        TestCase.workspace_id == test_ws_id,
         TestCase.test_id == "tests/test_new.py::test_brand_new",
         TestCase.deleted_at.is_(None),
     )
@@ -287,7 +287,7 @@ async def test_jenkins_webhook_stores_jenkins_metadata(
     client: AsyncClient,
     test_user_token: str,
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test that webhook stores Jenkins-specific metadata."""
     payload = {
@@ -352,7 +352,7 @@ async def test_jenkins_webhook_creates_test_results(
     client: AsyncClient,
     test_user_token: str,
     db_session: AsyncSession,
-    test_org_id,
+    test_ws_id,
 ):
     """Test that webhook creates all test results."""
     payload = {
@@ -423,3 +423,6 @@ async def test_jenkins_webhook_creates_test_results(
     assert failed[0].error_message == "Test failed"
     assert failed[0].error_type == "AssertionError"
     assert failed[0].class_name == "TestClass"
+
+
+

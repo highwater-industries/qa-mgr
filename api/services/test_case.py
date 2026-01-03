@@ -24,13 +24,13 @@ class TestCaseService:
     async def create_test_case(
         self,
         data: TestCaseCreateRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestCase:
         """Create a new test case."""
         # Verify suite exists and belongs to organization
         suite = await self.suite_repository.get_by_id_and_org(
             data.suite_id,
-            organization_id,
+            workspace_id,
         )
         if not suite:
             raise ValueError("Test suite not found")
@@ -38,13 +38,13 @@ class TestCaseService:
         # Check for duplicate test_id
         existing = await self.repository.get_by_test_id(
             data.test_id,
-            organization_id,
+            workspace_id,
         )
         if existing:
             raise ValueError("A test case with this test_id already exists")
         
         test_case = TestCase(
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             **data.model_dump(),
         )
         return await self.repository.create(test_case)
@@ -52,18 +52,18 @@ class TestCaseService:
     async def get_test_case(
         self,
         test_case_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestCase | None:
         """Get a test case by ID."""
-        return await self.repository.get_by_id_and_org(test_case_id, organization_id)
+        return await self.repository.get_by_id_and_org(test_case_id, workspace_id)
     
     async def get_test_case_detail(
         self,
         test_case_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestCaseDetailResponse | None:
         """Get detailed test case information."""
-        test_case = await self.get_test_case(test_case_id, organization_id)
+        test_case = await self.get_test_case(test_case_id, workspace_id)
         if not test_case:
             return None
         
@@ -72,7 +72,7 @@ class TestCaseService:
     async def list_test_cases(
         self,
         suite_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         active_only: bool = False,
         tags: list[str] | None = None,
     ) -> list[TestCase]:
@@ -80,7 +80,7 @@ class TestCaseService:
         # Verify suite exists
         suite = await self.suite_repository.get_by_id_and_org(
             suite_id,
-            organization_id,
+            workspace_id,
         )
         if not suite:
             raise ValueError("Test suite not found")
@@ -88,13 +88,13 @@ class TestCaseService:
         if active_only:
             return await self.repository.get_active_by_suite(
                 suite_id,
-                organization_id,
+                workspace_id,
                 tags,
             )
         
         return await self.repository.get_by_suite(
             suite_id,
-            organization_id,
+            workspace_id,
             tags,
         )
     
@@ -102,25 +102,28 @@ class TestCaseService:
         self,
         test_case_id: UUID,
         data: TestCaseUpdateRequest,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestCase | None:
         """Update a test case."""
-        test_case = await self.get_test_case(test_case_id, organization_id)
+        test_case = await self.get_test_case(test_case_id, workspace_id)
         if not test_case:
             return None
         
         update_data = data.model_dump(exclude_unset=True)
-        return await self.repository.update_by_id_and_org(test_case_id, organization_id, update_data)
+        return await self.repository.update_by_id_and_org(test_case_id, workspace_id, update_data)
     
     async def delete_test_case(
         self,
         test_case_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> bool:
         """Delete a test case (soft delete)."""
-        test_case = await self.get_test_case(test_case_id, organization_id)
+        test_case = await self.get_test_case(test_case_id, workspace_id)
         if not test_case:
             return False
         
-        await self.repository.delete_by_id_and_org(test_case_id, organization_id)
+        await self.repository.delete_by_id_and_org(test_case_id, workspace_id)
         return True
+
+
+

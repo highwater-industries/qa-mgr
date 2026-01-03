@@ -48,7 +48,7 @@ class TestCaseResponse(BaseModel):
     """Basic response schema for test case."""
     
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     suite_id: UUID
     name: str
     test_id: str
@@ -73,3 +73,6 @@ class TestCaseDetailResponse(TestCaseResponse):
     pass_rate_percent: float | None = None
     last_run_status: str | None = None
     last_run_at: datetime | None = None
+
+
+

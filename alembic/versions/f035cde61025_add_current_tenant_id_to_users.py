@@ -28,3 +28,4 @@ def downgrade() -> None:
     op.drop_constraint(None, 'users', type_='foreignkey')
     op.drop_column('users', 'current_tenant_id')
     # ### end Alembic commands ###
+

@@ -79,7 +79,7 @@ class TestRunResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     run_number: int
     name: str
     status: str
@@ -166,3 +166,6 @@ class TestRunListItem(BaseModel):
         if self.total_tests == 0:
             return None
         return round((self.passed_tests / self.total_tests) * 100, 2)
+
+
+

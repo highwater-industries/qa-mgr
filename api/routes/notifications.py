@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
-from api.dependencies import get_current_organization, get_current_user
+from api.dependencies import get_current_workspace, get_current_user
 from api.services.notification import NotificationService
 from database.models.notification import (
     NotificationConfigCreate,
@@ -26,7 +26,7 @@ async def create_notification_config(
     data: NotificationConfigCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Create a new notification configuration.
@@ -38,7 +38,7 @@ async def create_notification_config(
     - **Filters**: By tags and branches
     """
     service = NotificationService(db)
-    config = await service.create_config(data, organization_id, user.id)
+    config = await service.create_config(data, workspace_id, user.id)
     await db.commit()
     
     return config
@@ -47,7 +47,7 @@ async def create_notification_config(
 @router.get("/configs", response_model=list[NotificationConfigPublic])
 async def list_notification_configs(
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
     project_id: UUID | None = None,
     is_active: bool | None = None,
     notification_type: str | None = None,
@@ -64,7 +64,7 @@ async def list_notification_configs(
     """
     service = NotificationService(db)
     configs = await service.list_configs(
-        organization_id=organization_id,
+        workspace_id=workspace_id,
         project_id=project_id,
         is_active=is_active,
         notification_type=notification_type,
@@ -78,11 +78,11 @@ async def list_notification_configs(
 async def get_notification_config(
     config_id: UUID,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """Get a notification configuration by ID."""
     service = NotificationService(db)
-    config = await service.get_config(config_id, organization_id)
+    config = await service.get_config(config_id, workspace_id)
     
     if not config:
         raise HTTPException(status_code=404, detail="Notification config not found")
@@ -95,7 +95,7 @@ async def update_notification_config(
     config_id: UUID,
     data: NotificationConfigUpdate,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Update a notification configuration.
@@ -107,7 +107,7 @@ async def update_notification_config(
     - Adjust **filter_tags** or **filter_branches** for targeting
     """
     service = NotificationService(db)
-    config = await service.update_config(config_id, organization_id, data)
+    config = await service.update_config(config_id, workspace_id, data)
     
     if not config:
         raise HTTPException(status_code=404, detail="Notification config not found")
@@ -120,7 +120,7 @@ async def update_notification_config(
 async def delete_notification_config(
     config_id: UUID,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Delete a notification configuration (soft delete).
@@ -129,7 +129,7 @@ async def delete_notification_config(
     Historical logs will remain for audit purposes.
     """
     service = NotificationService(db)
-    deleted = await service.delete_config(config_id, organization_id)
+    deleted = await service.delete_config(config_id, workspace_id)
     
     if not deleted:
         raise HTTPException(status_code=404, detail="Notification config not found")
@@ -142,7 +142,7 @@ async def delete_notification_config(
 async def test_notification_config(
     config_id: UUID,
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
 ):
     """
     Send a test notification to verify configuration.
@@ -153,7 +153,7 @@ async def test_notification_config(
     Returns 202 Accepted - check logs for delivery status.
     """
     service = NotificationService(db)
-    config = await service.get_config(config_id, organization_id)
+    config = await service.get_config(config_id, workspace_id)
     
     if not config:
         raise HTTPException(status_code=404, detail="Notification config not found")
@@ -186,7 +186,7 @@ async def test_notification_config(
     }
     
     log = NotificationLog(
-        organization_id=organization_id,
+        workspace_id=workspace_id,
         notification_config_id=config.id,
         test_run_id=None,  # No actual test run
         notification_type=config.notification_type,
@@ -225,7 +225,7 @@ async def test_notification_config(
 @router.get("/logs", response_model=list[NotificationLogPublic])
 async def list_notification_logs(
     db: AsyncSession = Depends(get_db),
-    organization_id: UUID = Depends(get_current_organization),
+    workspace_id: UUID = Depends(get_current_workspace),
     test_run_id: UUID | None = None,
     config_id: UUID | None = None,
     status: str | None = None,
@@ -244,7 +244,7 @@ async def list_notification_logs(
     """
     service = NotificationService(db)
     logs = await service.get_logs(
-        organization_id=organization_id,
+        workspace_id=workspace_id,
         test_run_id=test_run_id,
         config_id=config_id,
         status=status,
@@ -252,3 +252,6 @@ async def list_notification_logs(
         limit=limit,
     )
     return logs
+
+
+

@@ -38,3 +38,6 @@ class JobRetryResponse(BaseModel):
     celery_task_id: str | None = None
     worker_id: str | None = None
     status: str | None = None
+
+
+

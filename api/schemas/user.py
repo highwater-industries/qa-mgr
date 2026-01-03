@@ -13,7 +13,7 @@ class UserMeResponse(BaseModel):
     avatar_url: str | None
     is_active: bool
     is_superuser: bool
-    current_organization_id: UUID | None
+    current_workspace_id: UUID | None
     last_login_at: datetime | None
     created_at: datetime
     
@@ -65,3 +65,6 @@ class UserListItem(BaseModel):
 class UserDeactivateRequest(BaseModel):
     """Deactivate user request."""
     reason: str | None = None
+
+
+

@@ -71,7 +71,7 @@ class OrganizationRequest(BaseModel, table=True):
     )
     
     # Created organization (if approved)
-    organization_id: UUID | None = Field(
+    workspace_id: UUID | None = Field(
         default=None,
         foreign_key="organizations.id",
         nullable=True,
@@ -115,7 +115,7 @@ class AccessRequest(BaseModel, table=True):
     __tablename__ = "access_requests"
     
     # Request details
-    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    workspace_id: UUID = Field(foreign_key="organizations.id", index=True)
     requested_by: UUID = Field(foreign_key="users.id", index=True)
     requested_role: str = Field(max_length=50)  # 'admin', 'developer', 'viewer'
     
@@ -168,8 +168,8 @@ class AccessRequest(BaseModel, table=True):
     role: Optional["UserTenantRole"] = Relationship()  # type: ignore
     
     __table_args__ = (
-        Index("idx_access_request_tenant", "organization_id", "status"),
-        Index("idx_access_request_user", "requested_by", "organization_id"),
+        Index("idx_access_request_tenant", "workspace_id", "status"),
+        Index("idx_access_request_user", "requested_by", "workspace_id"),
     )
 
 
@@ -205,7 +205,7 @@ class OrganizationRequestDetail(OrganizationRequestPublic):
     reviewed_by: UUID | None
     reviewed_at: datetime | None
     review_notes: str | None
-    organization_id: UUID | None
+    workspace_id: UUID | None
     updated_at: datetime
 
 
@@ -220,7 +220,7 @@ class OrganizationRequestReview(SQLModel):
 
 class AccessRequestBase(SQLModel):
     """Base schema for AccessRequest."""
-    organization_id: UUID
+    workspace_id: UUID
     requested_role: str = Field(regex=r"^(admin|developer|viewer)$")
     reason: str = Field(min_length=10)
 
@@ -233,7 +233,7 @@ class AccessRequestCreate(AccessRequestBase):
 class AccessRequestPublic(SQLModel):
     """Public response schema for AccessRequest."""
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     requested_by: UUID
     requested_role: str
     reason: str
@@ -281,12 +281,12 @@ organization_request.reviewed_by = org_admin_id
 organization_request.reviewed_at = datetime.now()
 organization_request.review_notes = "Approved - valid business need"
 # ... create organization and grant requester admin role ...
-organization_request.organization_id = new_organization.id
+organization_request.workspace_id = new_Workspace.id
 
 
 # User requests access to organization
 access_request = AccessRequest(
-    organization_id=organization_id,
+    organization_id=workspace_id,
     requested_by=current_user_id,
     requested_role="developer",
     reason="Need access to debug failing tests in payment service",
@@ -297,12 +297,12 @@ access_request = AccessRequest(
 access_request.status = "approved"
 access_request.reviewed_by = organization_admin_id
 access_request.reviewed_at = datetime.now()
-# ... create UserOrganizationRole ...
+# ... create UserWorkspaceRole ...
 access_request.user_organization_role_id = new_role.id
 
 # Auto-approval (if organization has auto_approve_access_requests=true)
 access_request = AccessRequest(
-    organization_id=organization_id,
+    organization_id=workspace_id,
     requested_by=current_user_id,
     requested_role="viewer",
     reason="Need to view test results",
@@ -311,4 +311,6 @@ access_request = AccessRequest(
 )
 # ... create UserTenantRole immediately ...
 """
+
+
 

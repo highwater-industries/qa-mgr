@@ -120,8 +120,8 @@ def main():
         config.api_base_url = args.api_url
     if args.api_key:
         config.api_key = args.api_key
-    if args.organization_id:
-        config.organization_id = args.organization_id
+    if args.workspace_id:
+        config.workspace_id = args.workspace_id
     if args.name:
         config.worker_name = args.name
     if args.tags:
@@ -139,7 +139,7 @@ def main():
     logger.info(f"  Max Concurrent Runs: {config.max_concurrent_runs}")
     
     # Check required settings
-    if not config.organization_id:
+    if not config.workspace_id:
         logger.error("Organization ID is required. Set QA_WORKER_ORGANIZATION_ID environment variable.")
         sys.exit(1)
     
@@ -158,3 +158,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

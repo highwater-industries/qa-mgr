@@ -64,11 +64,11 @@ async def test_create_test_run_with_suite(client: AsyncClient, auth_headers, tes
 
 
 @pytest.mark.asyncio
-async def test_list_test_runs(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_list_test_runs(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test listing test runs."""
     # Create a test run
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="List Test Run",
         run_number=100,
         status="completed",
@@ -91,12 +91,12 @@ async def test_list_test_runs(client: AsyncClient, auth_headers, db_session, tes
 
 
 @pytest.mark.asyncio
-async def test_list_test_runs_with_filters(client: AsyncClient, auth_headers, db_session, test_organization, test_project):
+async def test_list_test_runs_with_filters(client: AsyncClient, auth_headers, db_session, test_workspace, test_project):
     """Test listing test runs with filters."""
     # Create test runs with different statuses
     for i, status in enumerate(["queued", "running", "completed"]):
         run = TestRun(
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             project_id=test_project.id,
             name=f"Filter Test {status}",
             run_number=200 + i,
@@ -124,10 +124,10 @@ async def test_list_test_runs_with_filters(client: AsyncClient, auth_headers, db
 
 
 @pytest.mark.asyncio
-async def test_get_test_run(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_get_test_run(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test getting a specific test run."""
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Get Test Run",
         run_number=300,
         status="running",
@@ -166,10 +166,10 @@ async def test_get_test_run_not_found(client: AsyncClient, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_update_test_run(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_update_test_run(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test updating a test run."""
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Update Test Run",
         run_number=400,
         status="queued",
@@ -195,10 +195,10 @@ async def test_update_test_run(client: AsyncClient, auth_headers, db_session, te
 
 
 @pytest.mark.asyncio
-async def test_delete_test_run(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_delete_test_run(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test deleting a test run."""
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Delete Test Run",
         run_number=500,
         status="completed",
@@ -223,10 +223,10 @@ async def test_delete_test_run(client: AsyncClient, auth_headers, db_session, te
 
 
 @pytest.mark.asyncio
-async def test_start_test_run(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_start_test_run(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test starting a test run."""
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Start Test Run",
         run_number=600,
         status="queued",
@@ -249,12 +249,12 @@ async def test_start_test_run(client: AsyncClient, auth_headers, db_session, tes
 
 
 @pytest.mark.asyncio
-async def test_complete_test_run(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_complete_test_run(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test completing a test run."""
     from datetime import datetime, timezone
     
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Complete Test Run",
         run_number=700,
         status="running",
@@ -292,10 +292,10 @@ async def test_complete_test_run(client: AsyncClient, auth_headers, db_session, 
 # =============================================================================
 
 @pytest.mark.asyncio
-async def test_create_test_result(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_create_test_result(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test creating a single test result."""
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Result Test Run",
         run_number=800,
         status="running",
@@ -325,10 +325,10 @@ async def test_create_test_result(client: AsyncClient, auth_headers, db_session,
 
 
 @pytest.mark.asyncio
-async def test_create_test_result_failed(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_create_test_result_failed(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test creating a failed test result with error details."""
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Failed Result Run",
         run_number=801,
         status="running",
@@ -360,10 +360,10 @@ async def test_create_test_result_failed(client: AsyncClient, auth_headers, db_s
 
 
 @pytest.mark.asyncio
-async def test_batch_create_results(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_batch_create_results(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test batch uploading test results."""
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Batch Result Run",
         run_number=900,
         status="running",
@@ -412,12 +412,12 @@ async def test_batch_create_results(client: AsyncClient, auth_headers, db_sessio
 
 
 @pytest.mark.asyncio
-async def test_list_results(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_list_results(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test listing test results for a run."""
     from database.models.test_models import TestResult
     
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="List Results Run",
         run_number=1000,
         status="completed",
@@ -430,7 +430,7 @@ async def test_list_results(client: AsyncClient, auth_headers, db_session, test_
     # Add results
     for i in range(5):
         result = TestResult(
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             test_run_id=run.id,
             test_id=f"test_{i}",
             test_name=f"test_{i}",
@@ -451,12 +451,12 @@ async def test_list_results(client: AsyncClient, auth_headers, db_session, test_
 
 
 @pytest.mark.asyncio
-async def test_get_results_summary(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_get_results_summary(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test getting results summary for a run."""
     from database.models.test_models import TestResult
     
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Summary Run",
         run_number=1100,
         status="completed",
@@ -470,7 +470,7 @@ async def test_get_results_summary(client: AsyncClient, auth_headers, db_session
     statuses = ["passed", "passed", "passed", "failed", "skipped"]
     for i, status in enumerate(statuses):
         result = TestResult(
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             test_run_id=run.id,
             test_id=f"summary_test_{i}",
             test_name=f"summary_test_{i}",
@@ -495,12 +495,12 @@ async def test_get_results_summary(client: AsyncClient, auth_headers, db_session
 
 
 @pytest.mark.asyncio
-async def test_get_failed_tests(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_get_failed_tests(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test getting failed tests for a run."""
     from database.models.test_models import TestResult
     
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Failed Tests Run",
         run_number=1200,
         status="completed",
@@ -513,7 +513,7 @@ async def test_get_failed_tests(client: AsyncClient, auth_headers, db_session, t
     # Add results
     for i in range(3):
         result = TestResult(
-            organization_id=test_organization.id,
+            workspace_id=test_workspace.id,
             test_run_id=run.id,
             test_id=f"failed_test_{i}",
             test_name=f"failed_test_{i}",
@@ -537,12 +537,12 @@ async def test_get_failed_tests(client: AsyncClient, auth_headers, db_session, t
 
 
 @pytest.mark.asyncio
-async def test_get_single_result(client: AsyncClient, auth_headers, db_session, test_organization):
+async def test_get_single_result(client: AsyncClient, auth_headers, db_session, test_workspace):
     """Test getting a single test result."""
     from database.models.test_models import TestResult
     
     run = TestRun(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Single Result Run",
         run_number=1300,
         status="completed",
@@ -553,7 +553,7 @@ async def test_get_single_result(client: AsyncClient, auth_headers, db_session, 
     await db_session.refresh(run)
     
     result = TestResult(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         test_run_id=run.id,
         test_id="single_test",
         test_name="single_test",
@@ -575,3 +575,6 @@ async def test_get_single_result(client: AsyncClient, auth_headers, db_session, 
     data = response.json()
     assert data["test_id"] == "single_test"
     assert data["stdout"] == "Test output"
+
+
+

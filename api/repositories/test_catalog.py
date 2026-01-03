@@ -19,7 +19,7 @@ class TestCatalogRepository(BaseRepository[TestCase]):
     
     async def search_tests(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         project_id: UUID | None = None,
         suite_id: UUID | None = None,
         search: str | None = None,
@@ -41,7 +41,7 @@ class TestCatalogRepository(BaseRepository[TestCase]):
         # Base query with suite join for project filtering
         stmt = select(TestCase).join(TestSuite).where(
             and_(
-                TestCase.organization_id == organization_id,
+                TestCase.workspace_id == workspace_id,
                 TestCase.deleted_at.is_(None),
                 TestSuite.deleted_at.is_(None),
             )
@@ -118,13 +118,13 @@ class TestCatalogRepository(BaseRepository[TestCase]):
     async def get_test_detail(
         self,
         test_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> TestCase | None:
         """Get test case with full details including suite info."""
         stmt = select(TestCase).where(
             and_(
                 TestCase.id == test_id,
-                TestCase.organization_id == organization_id,
+                TestCase.workspace_id == workspace_id,
                 TestCase.deleted_at.is_(None),
             )
         ).options(
@@ -137,14 +137,14 @@ class TestCatalogRepository(BaseRepository[TestCase]):
     async def get_execution_history(
         self,
         test_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
         limit: int = 50,
     ) -> list[TestResult]:
         """Get recent execution history for a test case."""
         stmt = select(TestResult).where(
             and_(
                 TestResult.test_case_id == test_id,
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.deleted_at.is_(None),
             )
         ).order_by(desc(TestResult.created_at)).limit(limit)
@@ -154,13 +154,13 @@ class TestCatalogRepository(BaseRepository[TestCase]):
     
     async def get_catalog_statistics(
         self,
-        organization_id: UUID,
+        workspace_id: UUID,
         project_id: UUID | None = None,
     ) -> dict:
         """Get aggregated statistics across the test catalog."""
         # Base conditions
         conditions = [
-            TestCase.organization_id == organization_id,
+            TestCase.workspace_id == workspace_id,
             TestCase.deleted_at.is_(None),
         ]
         
@@ -248,7 +248,7 @@ class TestCatalogRepository(BaseRepository[TestCase]):
     async def get_execution_summary(
         self,
         test_case_id: UUID,
-        organization_id: UUID,
+        workspace_id: UUID,
     ) -> dict:
         """Get execution summary statistics for a specific test case."""
         stmt = select(
@@ -258,7 +258,7 @@ class TestCatalogRepository(BaseRepository[TestCase]):
         ).where(
             and_(
                 TestResult.test_case_id == test_case_id,
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.deleted_at.is_(None),
             )
         )
@@ -273,7 +273,7 @@ class TestCatalogRepository(BaseRepository[TestCase]):
         ).where(
             and_(
                 TestResult.test_case_id == test_case_id,
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.deleted_at.is_(None),
             )
         )
@@ -289,7 +289,7 @@ class TestCatalogRepository(BaseRepository[TestCase]):
         last_result_stmt = select(TestResult.status).where(
             and_(
                 TestResult.test_case_id == test_case_id,
-                TestResult.organization_id == organization_id,
+                TestResult.workspace_id == workspace_id,
                 TestResult.deleted_at.is_(None),
             )
         ).order_by(desc(TestResult.created_at)).limit(1)
@@ -308,3 +308,6 @@ class TestCatalogRepository(BaseRepository[TestCase]):
             "avg_duration_seconds": float(summary.avg_duration) if summary.avg_duration else None,
             "is_flaky": test_case.is_flaky if test_case else False,
         }
+
+
+

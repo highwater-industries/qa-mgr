@@ -9,7 +9,7 @@ from sqlalchemy.pool import NullPool
 
 from main import app
 from database.config import get_db
-from database.models import BaseModel, User, Organization, UserOrganizationRole
+from database.models import BaseModel, User, Workspace, UserWorkspaceRole
 from database.models.project import Project, TestSuite
 from database.models.test_models import TestCase
 import bcrypt
@@ -86,22 +86,22 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest.fixture
-async def test_organization(db_session: AsyncSession) -> Organization:
-    """Create a test organization."""
-    org = Organization(
-        name="Test Organization",
-        slug="test-org",
-        description="Test organization for unit tests",
+async def test_workspace(db_session: AsyncSession) -> Workspace:
+    """Create a test workspace."""
+    ws = Workspace(
+        name="Test Workspace",
+        slug="test-workspace",
+        description="Test workspace for unit tests",
         type="application",
     )
-    db_session.add(org)
+    db_session.add(ws)
     await db_session.commit()
-    await db_session.refresh(org)
-    return org
+    await db_session.refresh(ws)
+    return ws
 
 
 @pytest.fixture
-async def test_user(db_session: AsyncSession, test_organization: Organization) -> User:
+async def test_user(db_session: AsyncSession, test_workspace: Workspace) -> User:
     """Create a test user."""
     hashed_password = bcrypt.hashpw(b"testpass123", bcrypt.gensalt()).decode('utf-8')
     
@@ -112,16 +112,16 @@ async def test_user(db_session: AsyncSession, test_organization: Organization) -
         full_name="Test User",
         is_active=True,
         is_superuser=False,
-        current_organization_id=test_organization.id,
+        current_workspace_id=test_workspace.id,
     )
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
     
     # Create organization role
-    role = UserOrganizationRole(
+    role = UserWorkspaceRole(
         user_id=user.id,
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         role="admin",
     )
     db_session.add(role)
@@ -131,7 +131,7 @@ async def test_user(db_session: AsyncSession, test_organization: Organization) -
 
 
 @pytest.fixture
-async def admin_user(db_session: AsyncSession, test_organization: Organization) -> User:
+async def admin_user(db_session: AsyncSession, test_workspace: Workspace) -> User:
     """Create a superuser admin."""
     hashed_password = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode('utf-8')
     
@@ -142,16 +142,16 @@ async def admin_user(db_session: AsyncSession, test_organization: Organization) 
         full_name="Admin User",
         is_active=True,
         is_superuser=True,
-        current_organization_id=test_organization.id,
+        current_workspace_id=test_workspace.id,
     )
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
     
     # Create organization role
-    role = UserOrganizationRole(
+    role = UserWorkspaceRole(
         user_id=user.id,
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         role="admin",
     )
     db_session.add(role)
@@ -185,10 +185,10 @@ async def admin_headers(client: AsyncClient, admin_user: User) -> dict[str, str]
 
 
 @pytest.fixture
-async def test_project(db_session: AsyncSession, test_organization: Organization) -> Project:
+async def test_project(db_session: AsyncSession, test_workspace: Workspace) -> Project:
     """Create a test project."""
     project = Project(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         name="Test Project",
         description="Test project for unit tests",
         tags=["test"],
@@ -200,10 +200,10 @@ async def test_project(db_session: AsyncSession, test_organization: Organization
 
 
 @pytest.fixture
-async def test_suite(db_session: AsyncSession, test_organization: Organization, test_project: Project) -> TestSuite:
+async def test_suite(db_session: AsyncSession, test_workspace: Workspace, test_project: Project) -> TestSuite:
     """Create a test suite."""
     suite = TestSuite(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         project_id=test_project.id,
         name="Test Suite",
         description="Test suite for unit tests",
@@ -218,10 +218,10 @@ async def test_suite(db_session: AsyncSession, test_organization: Organization, 
 
 
 @pytest.fixture
-async def test_case(db_session: AsyncSession, test_organization: Organization, test_suite: TestSuite) -> TestCase:
+async def test_case(db_session: AsyncSession, test_workspace: Workspace, test_suite: TestSuite) -> TestCase:
     """Create a test case."""
     test_case = TestCase(
-        organization_id=test_organization.id,
+        workspace_id=test_workspace.id,
         suite_id=test_suite.id,
         name="Test Case 1",
         test_id="tests.unit.test_example::test_one",
@@ -243,7 +243,10 @@ async def test_user_token(auth_headers: dict[str, str]) -> str:
 
 
 @pytest.fixture
-def test_org_id(test_organization: Organization):
+def test_ws_id(test_workspace: Workspace):
     """Get test organization ID."""
-    return test_organization.id
+    return test_workspace.id
+
+
+
 

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from database.config import get_db
 from database.models.user import User
-from database.models.organization import UserOrganizationRole, Organization
+from database.models.workspace import UserWorkspaceRole, Workspace
 from api.repositories.user import UserRepository
 from api.auth.jwt import create_access_token
 from api.auth.password import verify_password
@@ -15,7 +15,7 @@ from api.schemas.auth import AuthLoginRequest, AuthTokenResponse
 from api.schemas.user import UserMeResponse
 from api.schemas.user_organization import (
     SwitchOrganizationRequest,
-    SwitchOrganizationResponse,
+    SwitchWorkspaceResponse,
     UserOrganizationsListResponse,
     UserOrganizationInfo,
 )
@@ -117,17 +117,17 @@ async def get_my_organizations(
     """
     # Query user's organization assignments with organization details
     result = await db.execute(
-        select(UserOrganizationRole, Organization)
-        .join(Organization, UserOrganizationRole.organization_id == Organization.id)
+        select(UserWorkspaceRole, Workspace)
+        .join(Workspace, UserWorkspaceRole.workspace_id == Workspace.id)
         .where(
             and_(
-                UserOrganizationRole.user_id == current_user.id,
-                UserOrganizationRole.revoked_at.is_(None),
-                UserOrganizationRole.deleted_at.is_(None),
-                Organization.deleted_at.is_(None),
+                UserWorkspaceRole.user_id == current_user.id,
+                UserWorkspaceRole.revoked_at.is_(None),
+                UserWorkspaceRole.deleted_at.is_(None),
+                Workspace.deleted_at.is_(None),
             )
         )
-        .order_by(UserOrganizationRole.granted_at.desc())
+        .order_by(UserWorkspaceRole.granted_at.desc())
     )
     
     organization_roles = result.all()
@@ -135,25 +135,25 @@ async def get_my_organizations(
     # Build response
     organization_list = [
         UserOrganizationInfo(
-            organization_id=role.organization_id,
+            workspace_id=role.workspace_id,
             organization_name=organization.name,
             organization_slug=organization.slug,
             role=role.role,
             granted_at=role.granted_at,
-            is_current=(role.organization_id == current_user.current_organization_id),
+            is_current=(role.workspace_id == current_user.current_workspace_id),
         )
         for role, organization in organization_roles
     ]
     
     return UserOrganizationsListResponse(
         organizations=organization_list,
-        current_organization_id=current_user.current_organization_id,
+        current_workspace_id=current_user.current_workspace_id,
     )
 
 
 @router.post(
     "/switch-organization",
-    response_model=SwitchOrganizationResponse,
+    response_model=SwitchWorkspaceResponse,
     summary="Switch current organization",
     description="Switch to a different organization that you have access to.",
 )
@@ -161,15 +161,15 @@ async def switch_organization(
     request: SwitchOrganizationRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> SwitchOrganizationResponse:
+) -> SwitchWorkspaceResponse:
     """
     Switch to a different organization.
     
     **Request Body**:
-    - organization_id: UUID of the organization to switch to
+    - workspace_id: UUID of the organization to switch to
     
     **Response**:
-    - Updates user's current_organization_id
+    - Updates user's current_workspace_id
     - Returns organization information
     
     **Errors**:
@@ -178,15 +178,15 @@ async def switch_organization(
     """
     # Verify user has access to this organization
     result = await db.execute(
-        select(UserOrganizationRole, Organization)
-        .join(Organization, UserOrganizationRole.organization_id == Organization.id)
+        select(UserWorkspaceRole, Workspace)
+        .join(Workspace, UserWorkspaceRole.workspace_id == Workspace.id)
         .where(
             and_(
-                UserOrganizationRole.user_id == current_user.id,
-                UserOrganizationRole.organization_id == request.organization_id,
-                UserOrganizationRole.revoked_at.is_(None),
-                UserOrganizationRole.deleted_at.is_(None),
-                Organization.deleted_at.is_(None),
+                UserWorkspaceRole.user_id == current_user.id,
+                UserWorkspaceRole.workspace_id == request.workspace_id,
+                UserWorkspaceRole.revoked_at.is_(None),
+                UserWorkspaceRole.deleted_at.is_(None),
+                Workspace.deleted_at.is_(None),
             )
         )
     )
@@ -202,13 +202,16 @@ async def switch_organization(
     role, organization = organization_data
     
     # Update user's current organization
-    current_user.current_organization_id = request.organization_id
+    current_user.current_workspace_id = request.workspace_id
     db.add(current_user)
     await db.commit()
     await db.refresh(current_user)
     
-    return SwitchOrganizationResponse(
-        current_organization_id=organization.id,
+    return SwitchWorkspaceResponse(
+        current_workspace_id=organization.id,
         organization_name=organization.name,
     )
+
+
+
 

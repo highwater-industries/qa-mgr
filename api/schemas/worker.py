@@ -43,7 +43,7 @@ class WorkerResponse(BaseModel):
     """Worker response schema."""
     
     id: UUID
-    organization_id: UUID
+    workspace_id: UUID
     name: str
     worker_type: str
     status: str
@@ -131,7 +131,7 @@ class WorkerHealthItem(BaseModel):
 class WorkerHealthResponse(BaseModel):
     """Response for worker health endpoint."""
     
-    organization_id: UUID
+    workspace_id: UUID
     checked_at: datetime
     summary: WorkerHealthSummary
     workers: list[WorkerHealthItem]
@@ -151,3 +151,6 @@ class WorkerHealthDetailResponse(BaseModel):
     current_active_runs: int
     max_concurrent_runs: int
     worker_config: dict | None
+
+
+

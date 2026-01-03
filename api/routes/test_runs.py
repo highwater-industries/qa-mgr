@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.config import get_db
 from database.models.user import User
-from api.dependencies import get_current_organization, get_current_user
+from api.dependencies import get_current_workspace, get_current_user
 from api.services.test_run import TestRunService
 from api.services.test_result import TestResultService
 from api.schemas.test_run import (
@@ -48,7 +48,7 @@ router = APIRouter(prefix="/test-runs", tags=["test-runs"])
 async def create_test_run(
     data: TestRunCreateRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     """Create a new test run."""
@@ -57,7 +57,7 @@ async def create_test_run(
     try:
         run = await service.create_run(
             data=data,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             triggered_by=current_user.id,
             trigger_type="manual",
         )
@@ -77,7 +77,7 @@ async def create_test_run(
 )
 async def list_test_runs(
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     project_id: UUID | None = None,
@@ -88,7 +88,7 @@ async def list_test_runs(
     service = TestRunService(session)
     
     runs = await service.list_runs(
-        organization_id=organization_id,
+        workspace_id=workspace_id,
         skip=skip,
         limit=limit,
         project_id=project_id,
@@ -108,11 +108,11 @@ async def list_test_runs(
 async def get_test_run(
     run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Get a test run by ID."""
     service = TestRunService(session)
-    run = await service.get_run(run_id, organization_id)
+    run = await service.get_run(run_id, workspace_id)
     
     if not run:
         raise HTTPException(
@@ -133,12 +133,12 @@ async def update_test_run(
     run_id: UUID,
     data: TestRunUpdateRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Update a test run."""
     service = TestRunService(session)
     
-    run = await service.update_run(run_id, organization_id, data)
+    run = await service.update_run(run_id, workspace_id, data)
     if not run:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -157,12 +157,12 @@ async def update_test_run(
 async def delete_test_run(
     run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Delete a test run."""
     service = TestRunService(session)
     
-    deleted = await service.delete_run(run_id, organization_id)
+    deleted = await service.delete_run(run_id, workspace_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -179,13 +179,13 @@ async def delete_test_run(
 async def start_test_run(
     run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
     data: TestRunStartRequest | None = None,
 ):
     """Start a test run."""
     service = TestRunService(session)
     
-    run = await service.start_run(run_id, organization_id, data)
+    run = await service.start_run(run_id, workspace_id, data)
     if not run:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -205,12 +205,12 @@ async def complete_test_run(
     run_id: UUID,
     data: TestRunCompleteRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Complete a test run."""
     service = TestRunService(session)
     
-    run = await service.complete_run(run_id, organization_id, data)
+    run = await service.complete_run(run_id, workspace_id, data)
     if not run:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -235,13 +235,13 @@ async def create_test_result(
     run_id: UUID,
     data: TestResultCreateRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Create a single test result."""
     service = TestResultService(session)
     
     try:
-        result = await service.create_result(run_id, data, organization_id)
+        result = await service.create_result(run_id, data, workspace_id)
         return TestResultResponse.model_validate(result)
     except ValueError as e:
         raise HTTPException(
@@ -261,17 +261,17 @@ async def create_test_results_batch(
     run_id: UUID,
     data: TestResultBatchCreateRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Batch upload test results."""
     service = TestResultService(session)
     
     try:
-        results, run_totals = await service.create_batch(run_id, data, organization_id)
+        results, run_totals = await service.create_batch(run_id, data, workspace_id)
         
         # Get updated run status
         run_service = TestRunService(session)
-        run = await run_service.get_run(run_id, organization_id)
+        run = await run_service.get_run(run_id, workspace_id)
         
         return TestResultBatchResponse(
             created_count=len(results),
@@ -295,7 +295,7 @@ async def create_test_results_batch(
 async def list_test_results(
     run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
     skip: int = Query(0, ge=0),
     limit: int = Query(1000, ge=1, le=10000),
     status_filter: str | None = Query(None, alias="status"),
@@ -306,7 +306,7 @@ async def list_test_results(
     try:
         results = await service.list_results(
             run_id=run_id,
-            organization_id=organization_id,
+            workspace_id=workspace_id,
             skip=skip,
             limit=limit,
             status=status_filter,
@@ -328,12 +328,12 @@ async def list_test_results(
 async def get_test_results_summary(
     run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Get summary of test results."""
     service = TestResultService(session)
     
-    summary = await service.get_summary(run_id, organization_id)
+    summary = await service.get_summary(run_id, workspace_id)
     if not summary:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -352,13 +352,13 @@ async def get_test_results_summary(
 async def get_failed_tests(
     run_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Get failed tests for a run."""
     service = TestResultService(session)
     
     try:
-        results = await service.get_failed_tests(run_id, organization_id)
+        results = await service.get_failed_tests(run_id, workspace_id)
         return [TestResultDetailResponse.model_validate(r) for r in results]
     except ValueError as e:
         raise HTTPException(
@@ -377,12 +377,12 @@ async def get_test_result(
     run_id: UUID,
     result_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
-    organization_id: Annotated[UUID, Depends(get_current_organization)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
 ):
     """Get a test result by ID."""
     service = TestResultService(session)
     
-    result = await service.get_result(result_id, organization_id)
+    result = await service.get_result(result_id, workspace_id)
     if not result or result.test_run_id != run_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -390,3 +390,6 @@ async def get_test_result(
         )
     
     return TestResultDetailResponse.model_validate(result)
+
+
+

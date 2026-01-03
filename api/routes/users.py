@@ -7,7 +7,7 @@ from sqlalchemy import select, and_
 from datetime import datetime, timezone
 
 from database.models.user import User
-from database.models.organization import UserOrganizationRole, Organization
+from database.models.workspace import UserWorkspaceRole, Workspace
 from database.models.base import ROLE_ADMIN
 from database.config import get_db
 from api.dependencies import get_current_user
@@ -31,7 +31,7 @@ router = APIRouter()
 
 async def check_organization_admin_permission(
     current_user: User,
-    organization_id: UUID,
+    workspace_id: UUID,
     db: AsyncSession,
 ) -> bool:
     """Check if user is superuser or admin of the specified organization."""
@@ -40,12 +40,12 @@ async def check_organization_admin_permission(
     
     # Check if user is admin of this organization
     result = await db.execute(
-        select(UserOrganizationRole).where(
+        select(UserWorkspaceRole).where(
             and_(
-                UserOrganizationRole.user_id == current_user.id,
-                UserOrganizationRole.organization_id == organization_id,
-                UserOrganizationRole.role == ROLE_ADMIN,
-                UserOrganizationRole.revoked_at.is_(None),
+                UserWorkspaceRole.user_id == current_user.id,
+                UserWorkspaceRole.workspace_id == workspace_id,
+                UserWorkspaceRole.role == ROLE_ADMIN,
+                UserWorkspaceRole.revoked_at.is_(None),
             )
         )
     )
@@ -312,17 +312,17 @@ async def get_user_organizations(
     
     # Query user's organization assignments
     result = await db.execute(
-        select(UserOrganizationRole, Organization)
-        .join(Organization, UserOrganizationRole.organization_id == Organization.id)
+        select(UserWorkspaceRole, Workspace)
+        .join(Workspace, UserWorkspaceRole.workspace_id == Workspace.id)
         .where(
             and_(
-                UserOrganizationRole.user_id == user_id,
-                UserOrganizationRole.revoked_at.is_(None),
-                UserOrganizationRole.deleted_at.is_(None),
-                Organization.deleted_at.is_(None),
+                UserWorkspaceRole.user_id == user_id,
+                UserWorkspaceRole.revoked_at.is_(None),
+                UserWorkspaceRole.deleted_at.is_(None),
+                Workspace.deleted_at.is_(None),
             )
         )
-        .order_by(UserOrganizationRole.granted_at.desc())
+        .order_by(UserWorkspaceRole.granted_at.desc())
     )
     
     organization_roles = result.all()
@@ -330,19 +330,19 @@ async def get_user_organizations(
     # Build response
     organization_list = [
         UserOrganizationInfo(
-            organization_id=role.organization_id,
+            workspace_id=role.workspace_id,
             organization_name=organization.name,
             organization_slug=organization.slug,
             role=role.role,
             granted_at=role.granted_at,
-            is_current=(role.organization_id == user.current_organization_id),
+            is_current=(role.workspace_id == user.current_workspace_id),
         )
         for role, organization in organization_roles
     ]
     
     return UserOrganizationsListResponse(
         organizations=organization_list,
-        current_organization_id=user.current_organization_id,
+        current_workspace_id=user.current_workspace_id,
     )
 
 
@@ -364,12 +364,12 @@ async def assign_user_to_organization(
     **Permissions**: Org admin or organization admin
     
     **Request Body**:
-    - organization_id: UUID of organization to assign user to
+    - workspace_id: UUID of organization to assign user to
     - role: Role in organization (admin, member, viewer)
     """
     # Check if current user is organization admin or superuser
     has_permission = await check_organization_admin_permission(
-        current_user, assignment.organization_id, db
+        current_user, assignment.workspace_id, db
     )
     if not has_permission:
         raise HTTPException(
@@ -388,10 +388,10 @@ async def assign_user_to_organization(
     
     # Verify organization exists
     organization_result = await db.execute(
-        select(Organization).where(
+        select(Workspace).where(
             and_(
-                Organization.id == assignment.organization_id,
-                Organization.deleted_at.is_(None),
+                Workspace.id == assignment.workspace_id,
+                Workspace.deleted_at.is_(None),
             )
         )
     )
@@ -404,11 +404,11 @@ async def assign_user_to_organization(
     
     # Check if user already has access to this organization
     existing_result = await db.execute(
-        select(UserOrganizationRole).where(
+        select(UserWorkspaceRole).where(
             and_(
-                UserOrganizationRole.user_id == user_id,
-                UserOrganizationRole.organization_id == assignment.organization_id,
-                UserOrganizationRole.revoked_at.is_(None),
+                UserWorkspaceRole.user_id == user_id,
+                UserWorkspaceRole.workspace_id == assignment.workspace_id,
+                UserWorkspaceRole.revoked_at.is_(None),
             )
         )
     )
@@ -420,9 +420,9 @@ async def assign_user_to_organization(
         db.add(existing_role)
     else:
         # Create new assignment
-        new_role = UserOrganizationRole(
+        new_role = UserWorkspaceRole(
             user_id=user_id,
-            organization_id=assignment.organization_id,
+            workspace_id=assignment.workspace_id,
             role=assignment.role,
             granted_at=datetime.now(timezone.utc).replace(tzinfo=None),
             granted_by=current_user.id,
@@ -434,20 +434,20 @@ async def assign_user_to_organization(
     return {
         "message": "User assigned to organization successfully",
         "user_id": str(user_id),
-        "organization_id": str(assignment.organization_id),
+        "workspace_id": str(assignment.workspace_id),
         "role": assignment.role,
     }
 
 
 @router.delete(
-    "/{user_id}/organizations/{organization_id}",
+    "/{user_id}/workspaces/{workspace_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Remove user from organization",
     description="Remove user's access to an organization. Admin only.",
 )
 async def remove_user_from_organization(
     user_id: UUID,
-    organization_id: UUID,
+    workspace_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
@@ -458,7 +458,7 @@ async def remove_user_from_organization(
     """
     # Check if current user is organization admin or superuser
     has_permission = await check_organization_admin_permission(
-        current_user, organization_id, db
+        current_user, workspace_id, db
     )
     if not has_permission:
         raise HTTPException(
@@ -468,11 +468,11 @@ async def remove_user_from_organization(
     
     # Find the user-organization role
     result = await db.execute(
-        select(UserOrganizationRole).where(
+        select(UserWorkspaceRole).where(
             and_(
-                UserOrganizationRole.user_id == user_id,
-                UserOrganizationRole.organization_id == organization_id,
-                UserOrganizationRole.revoked_at.is_(None),
+                UserWorkspaceRole.user_id == user_id,
+                UserWorkspaceRole.workspace_id == workspace_id,
+                UserWorkspaceRole.revoked_at.is_(None),
             )
         )
     )
@@ -488,11 +488,14 @@ async def remove_user_from_organization(
     role.revoked_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.add(role)
     
-    # Clear current_organization_id if this was the user's current organization
+    # Clear current_workspace_id if this was the user's current organization
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id(user_id)
-    if user and user.current_organization_id == organization_id:
-        user.current_organization_id = None
+    if user and user.current_workspace_id == workspace_id:
+        user.current_workspace_id = None
         db.add(user)
     
     await db.commit()
+
+
+
