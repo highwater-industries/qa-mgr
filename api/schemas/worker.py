@@ -107,7 +107,7 @@ class WorkerRegistrationResponse(BaseModel):
 class WorkerHealthSummary(BaseModel):
     """Summary of worker health statistics."""
     
-    total: int = Field(description="Total workers in organization")
+    total: int = Field(description="Total workers in workspace")
     online: int = Field(description="Workers with online status")
     offline: int = Field(description="Workers with offline status")
     idle: int = Field(description="Workers that are idle")

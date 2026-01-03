@@ -1,4 +1,4 @@
-"""Organization service for business logic."""
+"""Workspace service for business logic."""
 from uuid import UUID
 from fastapi import HTTPException, status
 

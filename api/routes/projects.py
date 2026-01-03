@@ -245,7 +245,7 @@ async def simple_get_project(
     workspace_id: UUID = Depends(get_current_workspace),
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectDetailResponse:
-    """Get project by ID from current user's organization."""
+    """Get project by ID from current user's workspace."""
     result = await service.get_project(project_id, with_stats=True)
     
     if not isinstance(result, dict):
@@ -256,7 +256,7 @@ async def simple_get_project(
     
     project = result["project"]
     
-    # Verify project belongs to user's organization
+    # Verify project belongs to user's workspace
     if project.workspace_id != workspace_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

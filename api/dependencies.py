@@ -88,7 +88,7 @@ async def get_current_workspace(
     """
     from database.models.workspace import UserWorkspaceRole
     
-    # Check if user has a current organization set
+    # Check if user has a current workspace set
     if current_user.current_workspace_id:
         # Verify they still have access to it
         result = await db.execute(
