@@ -12,6 +12,13 @@ from api.schemas.test_catalog import (
     SuiteMembership,
     TestExecutionHistoryItem,
     TestCatalogStatistics,
+    FlakyTestItem,
+    ChronicFailureItem,
+    SlowTestItem,
+    TestHealthMetrics,
+    TestExecutionCoverage,
+    TestCasesDashboardStats,
+    TestCasesDashboardResponse,
 )
 
 
@@ -201,6 +208,236 @@ class TestCatalogService:
         )
         
         return TestCatalogStatistics(**stats)
-
-
-
+    
+    async def get_dashboard(
+        self,
+        workspace_id: UUID,
+        project_id: UUID | None = None,
+    ) -> TestCasesDashboardResponse:
+        """Get test cases dashboard with quality metrics."""
+        from database.models.base import utc_now
+        from database.models.test_models import TestRun, TestResult
+        from sqlalchemy import select, func, case, and_
+        from datetime import timedelta
+        
+        now = utc_now()
+        last_24h = now - timedelta(hours=24)
+        last_7d = now - timedelta(days=7)
+        last_30d = now - timedelta(days=30)
+        
+        # Base query for tests in workspace
+        base_query = select(TestCase).where(
+            TestCase.workspace_id == workspace_id,
+            TestCase.deleted_at == None,
+        )
+        if project_id:
+            base_query = base_query.where(TestCase.project_id == project_id)
+        
+        # Get all tests
+        result = await self.db.execute(base_query)
+        all_tests = result.scalars().all()
+        
+        # Query test results for analysis
+        results_query = select(
+            TestResult.test_case_id,
+            TestResult.status,
+            TestResult.duration_seconds,
+            TestResult.created_at,
+        ).join(
+            TestRun, TestRun.id == TestResult.test_run_id
+        ).where(
+            TestResult.workspace_id == workspace_id,
+            TestResult.deleted_at == None,
+            TestRun.deleted_at == None,
+        )
+        if project_id:
+            results_query = results_query.where(TestResult.project_id == project_id)
+        
+        results_data = await self.db.execute(results_query)
+        results = results_data.fetchall()
+        
+        # Organize results by test_case_id
+        test_results_map = {}
+        for row in results:
+            test_id = row.test_case_id
+            if test_id not in test_results_map:
+                test_results_map[test_id] = []
+            test_results_map[test_id].append({
+                'status': row.status,
+                'duration': row.duration_seconds,
+                'created_at': row.created_at,
+            })
+        
+        # Calculate metrics for each test
+        flaky_tests = []
+        chronic_failures = []
+        slow_tests = []
+        
+        for test in all_tests:
+            test_results = test_results_map.get(test.id, [])
+            if not test_results:
+                continue
+            
+            # Sort by time
+            test_results.sort(key=lambda x: x['created_at'])
+            
+            # Flakiness detection - look for status changes in recent runs
+            recent_results = [r for r in test_results if r['created_at'] >= last_7d]
+            if len(recent_results) >= 5:
+                passes = sum(1 for r in recent_results if r['status'] == 'passed')
+                failures = sum(1 for r in recent_results if r['status'] == 'failed')
+                total = len(recent_results)
+                
+                if passes > 0 and failures > 0:
+                    # Flaky if it has both passes and failures
+                    failure_rate = failures / total
+                    # Calculate flakiness score based on how often it changes state
+                    changes = sum(1 for i in range(1, len(recent_results)) 
+                                 if recent_results[i]['status'] != recent_results[i-1]['status'])
+                    flakiness_score = (changes / (len(recent_results) - 1)) * 100 if len(recent_results) > 1 else 0
+                    
+                    flaky_tests.append(FlakyTestItem(
+                        id=test.id,
+                        name=test.name,
+                        file_path=test.file_path,
+                        flakiness_score=round(flakiness_score, 2),
+                        recent_passes=passes,
+                        recent_failures=failures,
+                        last_status=recent_results[-1]['status'],
+                        failure_rate=round(failure_rate * 100, 2),
+                    ))
+            
+            # Chronic failure detection - consistently failing for multiple days
+            if len(test_results) >= 3:
+                last_n = test_results[-10:] if len(test_results) >= 10 else test_results
+                consecutive_failures = 0
+                for r in reversed(last_n):
+                    if r['status'] == 'failed':
+                        consecutive_failures += 1
+                    else:
+                        break
+                
+                if consecutive_failures >= 3:
+                    # Calculate days failing
+                    first_fail_time = last_n[-consecutive_failures]['created_at']
+                    days_failing = (now - first_fail_time).days
+                    
+                    chronic_failures.append(ChronicFailureItem(
+                        id=test.id,
+                        name=test.name,
+                        file_path=test.file_path,
+                        consecutive_failures=consecutive_failures,
+                        days_failing=days_failing,
+                        last_passed_at=next((r['created_at'] for r in reversed(test_results) 
+                                            if r['status'] == 'passed'), None),
+                        total_executions=len(test_results),
+                    ))
+            
+            # Slow test detection
+            durations = [r['duration'] for r in test_results if r['duration'] is not None]
+            if durations:
+                avg_duration = sum(durations) / len(durations)
+                # Consider slow if avg > 30 seconds
+                if avg_duration > 30:
+                    # Calculate trend
+                    recent_durations = [r['duration'] for r in test_results[-5:] 
+                                       if r['duration'] is not None]
+                    if len(recent_durations) >= 2:
+                        early_avg = sum(recent_durations[:len(recent_durations)//2]) / (len(recent_durations)//2)
+                        late_avg = sum(recent_durations[len(recent_durations)//2:]) / (len(recent_durations) - len(recent_durations)//2)
+                        duration_trend = "increasing" if late_avg > early_avg * 1.1 else "stable"
+                    else:
+                        duration_trend = "stable"
+                    
+                    slow_tests.append(SlowTestItem(
+                        id=test.id,
+                        name=test.name,
+                        file_path=test.file_path,
+                        avg_duration_seconds=round(avg_duration, 2),
+                        max_duration_seconds=round(max(durations), 2),
+                        min_duration_seconds=round(min(durations), 2),
+                        execution_count=len(durations),
+                        duration_trend=duration_trend,
+                    ))
+        
+        # Sort by severity
+        flaky_tests.sort(key=lambda x: x.flakiness_score, reverse=True)
+        chronic_failures.sort(key=lambda x: x.consecutive_failures, reverse=True)
+        slow_tests.sort(key=lambda x: x.avg_duration_seconds, reverse=True)
+        
+        # Calculate overall health metrics
+        total_tests = len(all_tests)
+        total_executions = len(results)
+        passed_count = sum(1 for r in results if r.status == 'passed')
+        failed_count = sum(1 for r in results if r.status == 'failed')
+        
+        # Recent metrics
+        recent_24h = [r for r in results if r.created_at >= last_24h]
+        recent_7d = [r for r in results if r.created_at >= last_7d]
+        
+        pass_rate = (passed_count / total_executions * 100) if total_executions > 0 else 0
+        pass_rate_24h = (sum(1 for r in recent_24h if r.status == 'passed') / len(recent_24h) * 100) if recent_24h else 0
+        pass_rate_7d = (sum(1 for r in recent_7d if r.status == 'passed') / len(recent_7d) * 100) if recent_7d else 0
+        
+        # Determine trend
+        if pass_rate_24h > pass_rate_7d + 5:
+            pass_rate_trend = "improving"
+        elif pass_rate_24h < pass_rate_7d - 5:
+            pass_rate_trend = "degrading"
+        else:
+            pass_rate_trend = "stable"
+        
+        # Count active/inactive tests
+        active_tests = sum(1 for t in all_tests if getattr(t, 'is_active', True))
+        inactive_tests = total_tests - active_tests
+        
+        # Calculate average test duration
+        all_durations = [r.duration_seconds for r in results if r.duration_seconds is not None]
+        avg_test_duration = sum(all_durations) / len(all_durations) if all_durations else None
+        
+        health_metrics = TestHealthMetrics(
+            total_tests=total_tests,
+            active_tests=active_tests,
+            inactive_tests=inactive_tests,
+            flaky_tests_count=len(flaky_tests),
+            chronic_failures_count=len(chronic_failures),
+            never_executed_count=len([t for t in all_tests if t.id not in test_results_map]),
+            overall_pass_rate=round(pass_rate, 2) if total_executions > 0 else None,
+            pass_rate_trend=pass_rate_trend,
+            avg_test_duration_seconds=round(avg_test_duration, 2) if avg_test_duration is not None else None,
+            total_slow_tests=len(slow_tests),
+        )
+        
+        # Count tests executed at least once
+        executed_once = len(set(r.test_case_id for r in results))
+        never_executed = total_tests - executed_once
+        
+        coverage = TestExecutionCoverage(
+            total_tests=total_tests,
+            executed_at_least_once=executed_once,
+            never_executed=never_executed,
+            executed_last_7d=len(set(r.test_case_id for r in results if r.created_at >= last_7d)),
+            executed_last_30d=len(set(r.test_case_id for r in results if r.created_at >= last_30d)),
+            coverage_percentage=(executed_once / total_tests * 100) if total_tests > 0 else 0.0,
+        )
+        
+        # Count tests added/removed in last 7d (simplified - would need creation timestamps)
+        tests_added_last_7d = 0
+        tests_removed_last_7d = 0
+        
+        stats = TestCasesDashboardStats(
+            health=health_metrics,
+            coverage=coverage,
+            tests_added_last_7d=tests_added_last_7d,
+            tests_removed_last_7d=tests_removed_last_7d,
+        )
+        
+        return TestCasesDashboardResponse(
+            workspace_id=workspace_id,
+            project_id=project_id,
+            checked_at=now,
+            stats=stats,
+            flaky_tests=flaky_tests[:10],  # Top 10
+            chronic_failures=chronic_failures[:10],  # Top 10
+            slow_tests=slow_tests[:10],  # Top 10
+        )

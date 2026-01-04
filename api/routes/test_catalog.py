@@ -14,10 +14,36 @@ from api.schemas.test_catalog import (
     TestCatalogDetail,
     TestExecutionHistoryItem,
     TestCatalogStatistics,
+    TestCasesDashboardResponse,
 )
 
 
 router = APIRouter(prefix="/test-catalog", tags=["test-catalog"])
+
+
+@router.get(
+    "/dashboard",
+    response_model=TestCasesDashboardResponse,
+)
+async def get_test_cases_dashboard(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
+    project_id: UUID | None = Query(default=None, description="Filter to specific project"),
+):
+    """
+    Get test cases dashboard with quality metrics.
+    
+    Provides insights into:
+    - **Flaky tests**: Tests that intermittently pass/fail
+    - **Chronic failures**: Tests consistently failing over time
+    - **Slow tests**: Tests taking longer than expected
+    - **Health metrics**: Overall test suite quality trends
+    - **Coverage**: Test execution patterns and coverage
+    
+    Use this endpoint to identify test quality issues and prioritize fixes.
+    """
+    service = TestCatalogService(session)
+    return await service.get_dashboard(workspace_id, project_id)
 
 
 @router.get(

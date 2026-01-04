@@ -12,11 +12,39 @@ from database.models.worker import (
     SchedulePublic,
     ScheduleDetail,
 )
+from api.schemas.schedule import ScheduleDashboardResponse
 from database.models import User
 from api.services.schedule import ScheduleService
 
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
+
+
+@router.get(
+    "/dashboard",
+    response_model=ScheduleDashboardResponse,
+)
+async def get_schedules_dashboard(
+    db: AsyncSession = Depends(get_db),
+    workspace_id: UUID = Depends(get_current_workspace),
+    project_id: UUID | None = Query(default=None, description="Filter to specific project"),
+):
+    """
+    Get schedules dashboard with execution metrics.
+    
+    Provides insights into:
+    - **Active schedules**: Currently enabled schedules
+    - **Paused schedules**: Temporarily disabled schedules
+    - **Failing schedules**: Schedules with recent execution failures
+    - **Upcoming runs**: Scheduled executions in next 24-48 hours
+    - **Execution stats**: Success rates and reliability metrics
+    - **Health indicators**: Missed runs and chronic issues
+    
+    Use this endpoint to monitor automated test execution and identify scheduling problems.
+    """
+    service = ScheduleService(db)
+    dashboard = await service.get_dashboard(workspace_id, project_id)
+    return dashboard
 
 
 @router.post(
