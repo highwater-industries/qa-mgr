@@ -57,6 +57,27 @@ Example of creating aggregated metrics and dashboard endpoints:
 
 ---
 
+### 5. Jenkins Integration & Worker Pool ⭐
+**Directory:** `5_jenkins_integration/`
+
+**Replaces Jenkins lockable resources with a flexible worker pool system:**
+- Worker registration and health monitoring
+- Job queue with intelligent dispatch
+- Jenkins webhook integration
+- Worker API for job claiming and reporting
+- Dynamic resource allocation
+
+**Use when:** Replacing Jenkins pipelines, implementing distributed job execution, or building a worker pool system
+
+**Key features:**
+- Dynamic worker scaling (no node locking!)
+- Intelligent worker matching by requirements
+- Automatic job retries
+- Priority-based job queue
+- Real-time monitoring and health checks
+
+---
+
 ## How to Use These Examples
 
 ### 1. Review the Example
