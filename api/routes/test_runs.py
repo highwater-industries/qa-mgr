@@ -19,6 +19,7 @@ from api.schemas.test_run import (
     TestRunResponse,
     TestRunDetailResponse,
     TestRunListItem,
+    TestRunDashboardResponse,
 )
 from api.schemas.test_result import (
     TestResultCreateRequest,
@@ -37,7 +38,6 @@ router = APIRouter(prefix="/test-runs", tags=["test-runs"])
 # =============================================================================
 # Test Run Endpoints
 # =============================================================================
-
 @router.post(
     "",
     response_model=TestRunResponse,
@@ -97,6 +97,46 @@ async def list_test_runs(
     )
     
     return [TestRunListItem.model_validate(r) for r in runs]
+
+
+@router.get(
+    "/dashboard",
+    response_model=TestRunDashboardResponse,
+    summary="Get test runs dashboard",
+    description="Get comprehensive dashboard view with queued, running, and recent jobs.",
+)
+async def get_test_runs_dashboard(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
+):
+    """
+    Get comprehensive test runs dashboard.
+    
+    Returns job-centric view for monitoring including:
+    - Queued jobs waiting for workers (with wait times)
+    - Running jobs with worker assignments
+    - Recently completed jobs (last 24h)
+    - Recently failed jobs (last 24h)
+    - Queue statistics (depth, wait times, throughput)
+    - Success metrics (success rate, pass rate)
+    
+    This endpoint is optimized for monitoring dashboards and UIs that need
+    a complete view of job queue status. For lightweight job lists,
+    use GET /test-runs instead.
+    
+    **Response includes:**
+    - Queued/running/completed/failed jobs with details
+    - Worker assignments (which worker is running what)
+    - Queue depth and oldest queued job timestamp
+    - Average wait time and job duration
+    - Success rate and pass rate statistics
+    - Throughput metrics (jobs/hour, jobs/24h)
+    """
+    service = TestRunService(session)
+    
+    dashboard = await service.get_dashboard(workspace_id)
+    
+    return dashboard
 
 
 @router.get(
