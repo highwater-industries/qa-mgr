@@ -153,4 +153,81 @@ class WorkerHealthDetailResponse(BaseModel):
     worker_config: dict | None
 
 
+# =============================================================================
+# Dashboard Schemas
+# =============================================================================
+
+class ActiveJobInfo(BaseModel):
+    """Active job information for dashboard."""
+    
+    id: UUID
+    test_run_id: UUID
+    status: str
+    started_at: datetime | None
+    estimated_duration_seconds: int | None = Field(None, description="Estimated duration if available")
+    test_name: str | None = Field(None, description="Test name if available")
+
+
+class WorkerDashboardItem(BaseModel):
+    """Worker information for dashboard with active jobs."""
+    
+    id: UUID
+    name: str
+    worker_type: str
+    status: str
+    is_available: bool
+    is_healthy: bool = Field(description="True if worker is online and heartbeat is recent")
+    
+    # Capacity
+    current_active_runs: int
+    max_concurrent_runs: int
+    capacity_used_percent: float = Field(description="Percentage of capacity in use")
+    
+    # System info
+    os: str | None
+    arch: str | None
+    tags: list[str]
+    
+    # Performance
+    total_jobs_completed: int
+    total_jobs_failed: int
+    success_rate: float | None = Field(None, description="Success rate percentage if any jobs completed")
+    
+    # Health
+    last_heartbeat_at: datetime | None
+    seconds_since_heartbeat: int | None
+    
+    # Active jobs
+    active_jobs: list[ActiveJobInfo] = Field(default=[], description="Currently running jobs")
+    
+    created_at: datetime
+
+
+class WorkerDashboardStats(BaseModel):
+    """Overall statistics for dashboard."""
+    
+    total_workers: int
+    online_workers: int
+    offline_workers: int
+    healthy_workers: int
+    stale_workers: int
+    
+    total_capacity: int = Field(description="Sum of max_concurrent_runs")
+    used_capacity: int = Field(description="Sum of current_active_runs")
+    available_capacity: int = Field(description="Capacity not in use")
+    capacity_utilization_percent: float
+    
+    total_jobs_queued: int = Field(description="Jobs waiting for workers")
+    total_jobs_running: int = Field(description="Jobs currently executing")
+
+
+class WorkerDashboardResponse(BaseModel):
+    """Complete dashboard response with workers and stats."""
+    
+    workspace_id: UUID
+    checked_at: datetime
+    stats: WorkerDashboardStats
+    workers: list[WorkerDashboardItem]
+
+
 
