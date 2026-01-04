@@ -228,6 +228,41 @@ async def list_available_workers(
 
 
 @router.get(
+    "/dashboard",
+    response_model=WorkerDashboardResponse,
+)
+async def get_worker_dashboard(
+    db: AsyncSession = Depends(get_db),
+    workspace_id: UUID = Depends(get_current_workspace),
+):
+    """
+    Get comprehensive worker dashboard with active jobs.
+    
+    Returns detailed view for monitoring including:
+    - All workers with their status and health
+    - Active jobs running on each worker with details
+    - Performance metrics (success rate, jobs completed)
+    - Overall statistics (capacity utilization, queue depth)
+    
+    This endpoint is optimized for monitoring dashboards and UIs that need
+    a complete view of worker pool status. For lightweight worker lists,
+    use GET /workers instead.
+    
+    **Response includes:**
+    - Worker details (name, type, status, health)
+    - Active jobs (job ID, test name, duration)
+    - Capacity metrics (current/max jobs, utilization %)
+    - Performance stats (completed jobs, success rate)
+    - Overall statistics (total capacity, queue depth)
+    """
+    service = WorkerService(db)
+    
+    dashboard = await service.get_dashboard(workspace_id)
+    
+    return dashboard
+
+
+@router.get(
     "/{worker_id}",
     response_model=WorkerResponse,
 )
@@ -311,41 +346,6 @@ async def delete_worker(
     
     await db.commit()
     return None
-
-
-@router.get(
-    "/dashboard",
-    response_model=WorkerDashboardResponse,
-)
-async def get_worker_dashboard(
-    db: AsyncSession = Depends(get_db),
-    workspace_id: UUID = Depends(get_current_workspace),
-):
-    """
-    Get comprehensive worker dashboard with active jobs.
-    
-    Returns detailed view for monitoring including:
-    - All workers with their status and health
-    - Active jobs running on each worker with details
-    - Performance metrics (success rate, jobs completed)
-    - Overall statistics (capacity utilization, queue depth)
-    
-    This endpoint is optimized for monitoring dashboards and UIs that need
-    a complete view of worker pool status. For lightweight worker lists,
-    use GET /workers instead.
-    
-    **Response includes:**
-    - Worker details (name, type, status, health)
-    - Active jobs (job ID, test name, duration)
-    - Capacity metrics (current/max jobs, utilization %)
-    - Performance stats (completed jobs, success rate)
-    - Overall statistics (total capacity, queue depth)
-    """
-    service = WorkerService(db)
-    
-    dashboard = await service.get_dashboard(workspace_id)
-    
-    return dashboard
 
 
 

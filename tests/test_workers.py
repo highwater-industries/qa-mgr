@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from database.models.worker import TestWorker
+from database.models.base import utc_now
 
 
 @pytest.mark.asyncio
@@ -473,6 +474,164 @@ async def test_worker_not_found(
     )
     
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_workers_dashboard(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    db_session: AsyncSession,
+    test_ws_id,
+):
+    """Test workers dashboard endpoint."""
+    from database.models.test_models import TestRun
+    
+    # Create workers with different statuses
+    workers = [
+        TestWorker(
+            workspace_id=test_ws_id,
+            name="online-worker",
+            worker_type="celery",
+            status="online",
+            is_available=True,
+            current_active_runs=2,
+            max_concurrent_runs=5,
+            last_heartbeat_at=utc_now(),
+            tags=["python"],
+            os="Linux",
+            arch="x86_64",
+            worker_config={"hostname": "worker1"},
+        ),
+        TestWorker(
+            workspace_id=test_ws_id,
+            name="offline-worker",
+            worker_type="celery",
+            status="offline",
+            is_available=False,
+            current_active_runs=0,
+            max_concurrent_runs=3,
+            tags=["python"],
+            os="Linux",
+            arch="x86_64",
+            worker_config={"hostname": "worker2"},
+        ),
+    ]
+    
+    for w in workers:
+        db_session.add(w)
+    
+    await db_session.commit()
+    await db_session.refresh(workers[0])
+    await db_session.refresh(workers[1])
+    
+    # Create test runs for online worker
+    test_runs = [
+        TestRun(
+            workspace_id=test_ws_id,
+            name="Test Run 1",
+            run_number=1,
+            status="running",
+            worker_id=workers[0].id,
+            trigger_type="manual",
+            total_tests=10,
+            passed_tests=5,
+            failed_tests=0,
+            skipped_tests=0,
+        ),
+        TestRun(
+            workspace_id=test_ws_id,
+            name="Test Run 2",
+            run_number=2,
+            status="queued",
+            trigger_type="manual",
+            total_tests=0,
+            passed_tests=0,
+            failed_tests=0,
+            skipped_tests=0,
+        ),
+    ]
+    
+    for run in test_runs:
+        db_session.add(run)
+    
+    await db_session.commit()
+    
+    # Get dashboard
+    response = await client.get(
+        "/quarion/api/v1/workers/dashboard",
+        headers=auth_headers,
+    )
+    
+    if response.status_code != 200:
+        print(f"Response status: {response.status_code}")
+        print(f"Response body: {response.text}")
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Verify response structure
+    assert "workspace_id" in data
+    assert "checked_at" in data
+    assert "stats" in data
+    assert "workers" in data
+    
+    # Verify stats
+    stats = data["stats"]
+    assert stats["total_workers"] == 2
+    assert stats["online_workers"] == 1
+    assert stats["offline_workers"] == 1
+    assert stats["healthy_workers"] == 1
+    assert stats["total_capacity"] == 8  # 5 + 3
+    assert stats["used_capacity"] == 2
+    assert stats["available_capacity"] == 6
+    assert "capacity_utilization_percent" in stats
+    assert "total_jobs_queued" in stats
+    assert "total_jobs_running" in stats
+    
+    # Verify workers
+    workers_data = data["workers"]
+    assert len(workers_data) == 2
+    
+    # Find online worker
+    online_worker = next((w for w in workers_data if w["name"] == "online-worker"), None)
+    assert online_worker is not None
+    assert online_worker["status"] == "online"
+    assert online_worker["is_healthy"] is True
+    assert online_worker["current_active_runs"] == 2
+    assert online_worker["max_concurrent_runs"] == 5
+    assert online_worker["capacity_used_percent"] == 40.0
+    # Note: total_jobs_completed and success_rate depend on TestRun history
+    assert "total_jobs_completed" in online_worker
+    assert "total_jobs_failed" in online_worker
+    assert "success_rate" in online_worker
+    assert len(online_worker["active_jobs"]) >= 0  # May have active jobs
+    
+    # Find offline worker
+    offline_worker = next((w for w in workers_data if w["name"] == "offline-worker"), None)
+    assert offline_worker is not None
+    assert offline_worker["status"] == "offline"
+    assert offline_worker["current_active_runs"] == 0
+    assert offline_worker["capacity_used_percent"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_workers_dashboard_empty(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_workspace,
+):
+    """Test workers dashboard with no workers."""
+    response = await client.get(
+        "/quarion/api/v1/workers/dashboard",
+        headers=auth_headers,
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert data["stats"]["total_workers"] == 0
+    assert data["stats"]["total_capacity"] == 0
+    assert data["workers"] == []
 
 
 

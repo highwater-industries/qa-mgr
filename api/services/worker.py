@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, and_, func
 
 from api.repositories.worker import WorkerRepository
+from database.models.base import utc_now
 from api.schemas.worker import (
     WorkerRegisterRequest, 
     WorkerHeartbeatRequest,
@@ -184,7 +185,7 @@ class WorkerService:
             limit=1000  # Get all for dashboard
         )
         
-        now = datetime.now(timezone.utc)
+        now = utc_now()  # Timezone-naive for PostgreSQL
         heartbeat_stale_seconds = 300  # 5 minutes
         
         dashboard_workers = []
@@ -203,7 +204,7 @@ class WorkerService:
             seconds_since_heartbeat = None
             
             if worker.last_heartbeat_at:
-                time_diff = now - worker.last_heartbeat_at.replace(tzinfo=timezone.utc)
+                time_diff = now - worker.last_heartbeat_at
                 seconds_since_heartbeat = int(time_diff.total_seconds())
                 is_stale = seconds_since_heartbeat > heartbeat_stale_seconds
             
@@ -214,7 +215,7 @@ class WorkerService:
                 and_(
                     TestRun.worker_id == worker.id,
                     TestRun.status.in_(["queued", "running"]),
-                    TestRun.is_deleted == False
+                    TestRun.deleted_at == None
                 )
             )
             
@@ -227,17 +228,30 @@ class WorkerService:
                     test_run_id=run.id,
                     status=run.status,
                     started_at=run.started_at,
-                    estimated_duration_seconds=run.estimated_duration_seconds,
+                    estimated_duration_seconds=getattr(run, 'estimated_duration_seconds', None),
                     test_name=getattr(run, 'test_name', None)
                 )
                 for run in active_test_runs
             ]
             
+            # Query for completed/failed jobs to calculate success rate
+            completed_jobs_query = select(TestRun).where(
+                and_(
+                    TestRun.worker_id == worker.id,
+                    TestRun.status.in_(["passed", "failed"]),
+                    TestRun.deleted_at == None
+                )
+            )
+            result = await self.db.execute(completed_jobs_query)
+            completed_runs = result.scalars().all()
+            
+            total_completed = len(completed_runs)
+            total_failed = sum(1 for run in completed_runs if run.status == "failed")
+            
             # Calculate success rate
             success_rate = None
-            if worker.total_jobs_completed > 0:
-                success_rate = ((worker.total_jobs_completed - worker.total_jobs_failed) / 
-                               worker.total_jobs_completed) * 100
+            if total_completed > 0:
+                success_rate = ((total_completed - total_failed) / total_completed) * 100
             
             # Calculate capacity
             capacity_used_percent = 0
@@ -258,8 +272,8 @@ class WorkerService:
                 os=worker.os,
                 arch=worker.arch,
                 tags=worker.tags,
-                total_jobs_completed=worker.total_jobs_completed,
-                total_jobs_failed=worker.total_jobs_failed,
+                total_jobs_completed=total_completed,
+                total_jobs_failed=total_failed,
                 success_rate=round(success_rate, 1) if success_rate is not None else None,
                 last_heartbeat_at=worker.last_heartbeat_at,
                 seconds_since_heartbeat=seconds_since_heartbeat,
@@ -289,7 +303,7 @@ class WorkerService:
             and_(
                 TestRun.workspace_id == workspace_id,
                 TestRun.status == "queued",
-                TestRun.is_deleted == False
+                TestRun.deleted_at == None
             )
         )
         queued_result = await self.db.execute(queued_jobs_query)
@@ -299,7 +313,7 @@ class WorkerService:
             and_(
                 TestRun.workspace_id == workspace_id,
                 TestRun.status == "running",
-                TestRun.is_deleted == False
+                TestRun.deleted_at == None
             )
         )
         running_result = await self.db.execute(running_jobs_query)

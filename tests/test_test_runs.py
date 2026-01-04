@@ -1,9 +1,12 @@
 """Test test run endpoints."""
 import pytest
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models.test_models import TestRun
+from database.models.worker import TestWorker
 
 
 @pytest.mark.asyncio
@@ -575,6 +578,193 @@ async def test_get_single_result(client: AsyncClient, auth_headers, db_session, 
     data = response.json()
     assert data["test_id"] == "single_test"
     assert data["stdout"] == "Test output"
+
+
+@pytest.mark.asyncio
+async def test_test_runs_dashboard(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    db_session: AsyncSession,
+    test_workspace,
+):
+    """Test test runs dashboard endpoint."""
+    # Create a worker
+    worker = TestWorker(
+        workspace_id=test_workspace.id,
+        name="test-worker",
+        worker_type="celery",
+        status="online",
+        is_available=True,
+        current_active_runs=1,
+        max_concurrent_runs=5,
+        tags=["python"],
+        os="Linux",
+        arch="x86_64",
+        worker_config={"hostname": "worker1"},
+    )
+    db_session.add(worker)
+    await db_session.commit()
+    await db_session.refresh(worker)
+    
+    # Create test runs with different statuses
+    now = datetime.now()  # Timezone-naive for PostgreSQL
+    test_runs = [
+        TestRun(
+            workspace_id=test_workspace.id,
+            name="Queued Run 1",
+            run_number=1,
+            status="queued",
+            trigger_type="manual",
+            total_tests=0,
+            passed_tests=0,
+            failed_tests=0,
+            skipped_tests=0,
+            queued_at=now - timedelta(minutes=10),
+        ),
+        TestRun(
+            workspace_id=test_workspace.id,
+            name="Queued Run 2",
+            run_number=2,
+            status="queued",
+            trigger_type="scheduled",
+            total_tests=0,
+            passed_tests=0,
+            failed_tests=0,
+            skipped_tests=0,
+            queued_at=now - timedelta(minutes=5),
+        ),
+        TestRun(
+            workspace_id=test_workspace.id,
+            name="Running Run",
+            run_number=3,
+            status="running",
+            trigger_type="manual",
+            worker_id=worker.id,
+            total_tests=10,
+            passed_tests=5,
+            failed_tests=0,
+            skipped_tests=0,
+            queued_at=now - timedelta(minutes=15),
+            started_at=now - timedelta(minutes=3),
+        ),
+        TestRun(
+            workspace_id=test_workspace.id,
+            name="Completed Run",
+            run_number=4,
+            status="passed",
+            trigger_type="manual",
+            worker_id=worker.id,
+            total_tests=10,
+            passed_tests=8,
+            failed_tests=2,
+            skipped_tests=0,
+            queued_at=now - timedelta(hours=2),
+            started_at=now - timedelta(hours=2) + timedelta(minutes=1),
+            completed_at=now - timedelta(hours=1),
+        ),
+        TestRun(
+            workspace_id=test_workspace.id,
+            name="Failed Run",
+            run_number=5,
+            status="failed",
+            trigger_type="scheduled",
+            worker_id=worker.id,
+            total_tests=10,
+            passed_tests=3,
+            failed_tests=7,
+            skipped_tests=0,
+            queued_at=now - timedelta(hours=3),
+            started_at=now - timedelta(hours=3) + timedelta(minutes=2),
+            completed_at=now - timedelta(hours=2, minutes=30),
+        ),
+    ]
+    
+    for run in test_runs:
+        db_session.add(run)
+    
+    await db_session.commit()
+    
+    # Get dashboard
+    response = await client.get(
+        "/quarion/api/v1/test-runs/dashboard",
+        headers=auth_headers,
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Verify response structure
+    assert "workspace_id" in data
+    assert "checked_at" in data
+    assert "stats" in data
+    assert "queued_runs" in data
+    assert "running_runs" in data
+    assert "recent_completed" in data
+    assert "recent_failed" in data
+    
+    # Verify stats
+    stats = data["stats"]
+    assert "queue" in stats
+    assert "success" in stats
+    
+    queue_stats = stats["queue"]
+    assert queue_stats["queued_count"] == 2
+    assert queue_stats["running_count"] == 1
+    assert "average_wait_time_seconds" in queue_stats
+    
+    success_stats = stats["success"]
+    assert "success_rate_24h" in success_stats
+    assert "average_pass_rate" in success_stats
+    assert "total_runs_24h" in success_stats
+    
+    # Verify queued runs
+    queued = data["queued_runs"]
+    assert len(queued) == 2
+    assert queued[0]["status"] == "queued"
+    assert queued[1]["status"] == "queued"
+    assert "wait_time_seconds" in queued[0]
+    
+    # Verify running runs
+    running = data["running_runs"]
+    assert len(running) == 1
+    assert running[0]["status"] == "running"
+    assert running[0]["name"] == "Running Run"
+    assert running[0]["worker_name"] == "test-worker"
+    assert "wait_time_seconds" in running[0]
+    
+    # Verify completed runs
+    completed = data["recent_completed"]
+    assert len(completed) >= 1
+    assert all(r["status"] == "passed" for r in completed)
+    
+    # Verify failed runs
+    failed = data["recent_failed"]
+    assert len(failed) >= 1
+    assert all(r["status"] == "failed" for r in failed)
+
+
+@pytest.mark.asyncio
+async def test_test_runs_dashboard_empty(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    test_workspace,
+):
+    """Test test runs dashboard with no runs."""
+    response = await client.get(
+        "/quarion/api/v1/test-runs/dashboard",
+        headers=auth_headers,
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert data["stats"]["queue"]["queued_count"] == 0
+    assert data["stats"]["queue"]["running_count"] == 0
+    assert data["queued_runs"] == []
+    assert data["running_runs"] == []
+    assert data["recent_completed"] == []
+    assert data["recent_failed"] == []
+
 
 
 

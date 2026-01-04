@@ -7,6 +7,7 @@ from sqlmodel import select, and_, func, or_
 
 from database.models.test_models import TestRun
 from database.models.worker import TestWorker
+from database.models.base import utc_now
 from api.repositories.test_run import TestRunRepository
 from api.repositories.project import ProjectRepository
 from api.repositories.test_suite import TestSuiteRepository
@@ -288,7 +289,7 @@ class TestRunService:
         - Queue and success statistics
         - Throughput metrics
         """
-        now = datetime.now(timezone.utc)
+        now = utc_now()  # Timezone-naive for PostgreSQL
         last_24h = now - timedelta(hours=24)
         last_1h = now - timedelta(hours=1)
         
@@ -297,7 +298,7 @@ class TestRunService:
             and_(
                 TestRun.workspace_id == workspace_id,
                 TestRun.status == "queued",
-                TestRun.is_deleted == False
+                TestRun.deleted_at == None
             )
         ).order_by(TestRun.created_at)
         
@@ -309,7 +310,7 @@ class TestRunService:
             and_(
                 TestRun.workspace_id == workspace_id,
                 TestRun.status == "running",
-                TestRun.is_deleted == False
+                TestRun.deleted_at == None
             )
         ).order_by(TestRun.started_at.desc())
         
@@ -322,7 +323,7 @@ class TestRunService:
                 TestRun.workspace_id == workspace_id,
                 TestRun.status == "passed",
                 TestRun.completed_at >= last_24h,
-                TestRun.is_deleted == False
+                TestRun.deleted_at == None
             )
         ).order_by(TestRun.completed_at.desc()).limit(50)
         
@@ -335,7 +336,7 @@ class TestRunService:
                 TestRun.workspace_id == workspace_id,
                 TestRun.status == "failed",
                 TestRun.completed_at >= last_24h,
-                TestRun.is_deleted == False
+                TestRun.deleted_at == None
             )
         ).order_by(TestRun.completed_at.desc()).limit(50)
         
@@ -439,7 +440,7 @@ class TestRunService:
                 TestRun.workspace_id == workspace_id,
                 TestRun.completed_at >= last_24h,
                 TestRun.status.in_(["passed", "failed"]),
-                TestRun.is_deleted == False
+                TestRun.deleted_at == None
             )
         )
         total_24h_result = await self.session.execute(total_24h_query)
@@ -450,7 +451,7 @@ class TestRunService:
                 TestRun.workspace_id == workspace_id,
                 TestRun.completed_at >= last_24h,
                 TestRun.status == "passed",
-                TestRun.is_deleted == False
+                TestRun.deleted_at == None
             )
         )
         successful_24h_result = await self.session.execute(successful_24h_query)
@@ -484,7 +485,7 @@ class TestRunService:
                 TestRun.workspace_id == workspace_id,
                 TestRun.completed_at >= last_1h,
                 TestRun.status.in_(["passed", "failed"]),
-                TestRun.is_deleted == False
+                TestRun.deleted_at == None
             )
         )
         runs_1h_result = await self.session.execute(runs_1h_query)
