@@ -3,14 +3,17 @@ FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including git
 RUN apt-get update && apt-get install -y \
+    git \
     gcc \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
-COPY pyproject.toml ./
+# Clone repository (can be overridden with build args)
+ARG GIT_REPO=https://github.com/highwater-industries/qa-mgr.git
+ARG GIT_BRANCH=main
+RUN git clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO} /app
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -30,8 +33,8 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code
-COPY . .
+# Copy application code from builder (cloned from git)
+COPY --from=builder /app /app
 
 # Create non-root user
 RUN useradd -m -u 1000 quarion && chown -R quarion:quarion /app

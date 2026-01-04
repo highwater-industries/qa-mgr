@@ -6,15 +6,30 @@
 - Docker Compose 2.0+
 - 2GB+ RAM available
 - 10GB+ disk space
+- Internet connection (for cloning repository)
 
 ## Quick Start
 
-### 1. Clone and Configure
+### 1. Download Docker Compose Configuration
+
+On your deployment server:
 
 ```bash
-# Copy environment template
-cp .env.example .env
+# Create deployment directory
+mkdir -p ~/quarion-deployment
+cd ~/quarion-deployment
 
+# Download docker-compose.yml
+curl -O https://raw.githubusercontent.com/highwater-industries/qa-mgr/main/docker-compose.yml
+
+# Download environment template
+curl -O https://raw.githubusercontent.com/highwater-industries/qa-mgr/main/.env.example
+mv .env.example .env
+```
+
+### 2. Configure Environment
+
+```bash
 # Edit .env with your configuration
 nano .env
 ```
@@ -22,16 +37,24 @@ nano .env
 **Important**: Change these values in `.env`:
 - `POSTGRES_PASSWORD` - Strong database password
 - `RABBITMQ_PASSWORD` - Strong message broker password
-- `SECRET_KEY` - Random 32+ character string for JWT tokens
+- `SECRET_KEY` - Random 64+ character string for JWT tokens
 
-### 2. Start Services
+**Generate secure values:**
+```bash
+# Generate SECRET_KEY
+python3 -c "import secrets; print(secrets.token_urlsafe(64))"
+
+# Generate passwords
+openssl rand -base64 32
+```
+
+### 3. Start Services
+
+The Docker build process will automatically clone the latest code from GitHub.
 
 ```bash
-# Start core services (API, database, workers)
-docker-compose up -d
-
-# OR: Start with nginx reverse proxy
-docker-compose --profile with-nginx up -d
+# Build and start all services (this will clone the repo automatically)
+docker-compose up -d --build
 
 # View logs
 docker-compose logs -f
@@ -40,7 +63,13 @@ docker-compose logs -f
 docker-compose ps
 ```
 
-### 3. Initialize Database
+**The build process will:**
+1. Clone the latest code from GitHub (main branch)
+2. Install all dependencies
+3. Build the Docker images
+4. Start all services
+
+### 4. Initialize Database
 
 ```bash
 # Run database migrations
@@ -148,18 +177,30 @@ docker-compose logs -f worker
 
 ## Updates
 
+### Deploy Specific Branch or Tag
+
+To deploy a specific version:
+
 ```bash
-# Pull latest code
-git pull
-
-# Rebuild containers
-docker-compose build
-
-# Apply database migrations
-docker-compose exec api alembic upgrade head
-
-# Restart services
+# Deploy specific branch
+docker-compose build --build-arg GIT_BRANCH=develop api worker
 docker-compose up -d
+
+# Deploy specific tag/release
+docker-compose build --build-arg GIT_BRANCH=v1.2.0 api worker
+docker-compose up -d
+```
+
+### Update to Latest Code
+
+```bash
+# Rebuild with latest code from main branch
+docker-compose down
+docker-compose build --no-cache --build-arg GIT_BRANCH=main
+docker-compose up -d
+
+# Run any new migrations
+docker-compose exec api alembic upgrade head
 ```
 
 ## Troubleshooting
