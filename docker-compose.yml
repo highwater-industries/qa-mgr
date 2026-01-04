@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: quarion-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-quarion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-quarion}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quarion}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: quarion-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-quarion}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-changeme}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Quarion API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: quarion-api
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-quarion}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-quarion}
+      
+      # RabbitMQ
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-quarion}:${RABBITMQ_PASSWORD:-changeme}@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: rpc://
+      
+      # Security
+      SECRET_KEY: ${SECRET_KEY:-change-this-to-a-secure-random-string-in-production}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      
+      # Application
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./alembic:/app/alembic
+    ports:
+      - "${API_PORT:-8000}:8000"  # API accessible directly on this port
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import httpx; httpx.get(\"http://localhost:8000/\")'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  # Celery Worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: quarion-worker
+    command: celery -A worker_agent.celery_tasks worker --loglevel=info
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-quarion}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-quarion}
+      
+      # RabbitMQ
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-quarion}:${RABBITMQ_PASSWORD:-changeme}@rabbitmq:5672//
+      CELERY_RESULT_BACKEND: rpc://
+      
+      # Worker Config
+      QA_WORKER_API_BASE_URL: http://api:8000
+      
+      # Application
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      - rabbitmq
+      - api
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy (optional - use profile to enable)
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: quarion-nginx
+    profiles:
+      - with-nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro  # Mount SSL certificates if you have them
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  default:
+    name: quarion-network
