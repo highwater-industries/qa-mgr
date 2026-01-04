@@ -78,6 +78,36 @@ Example of creating aggregated metrics and dashboard endpoints:
 
 ---
 
+### 6. Notes and Tasks with JIRA Integration ⭐
+**Directory:** `6_notes_and_tasks/`
+
+**Complete work tracking system with JIRA integration:**
+- Markdown notes with tagging and categorization
+- Task lists with unlimited hierarchy
+- JIRA ticket import with task generation
+- Link tasks to jobs and test runs
+- Flexible permission system (workspace/private/custom)
+- Version history tracking
+
+**Use when:** Building work tracking, documentation, project management, or JIRA workflow integration
+
+**Key features:**
+- Import JIRA tickets as notes with task breakdown
+- Task hierarchy with parent-child relationships
+- Link tasks to worker pool jobs (Example 5)
+- Permission levels: workspace, private, custom
+- External reference caching (offline JIRA access)
+- Version history for audit trail
+
+**Real-world workflow:**
+1. Import JIRA ticket → Creates note with ticket details
+2. AI analyzes ticket → Generates task breakdown
+3. Team members claim tasks → Track progress
+4. Tasks link to jobs → Execution status updates
+5. Mark tasks complete → Team visibility
+
+---
+
 ## How to Use These Examples
 
 ### 1. Review the Example
