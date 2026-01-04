@@ -13,10 +13,47 @@ from api.schemas.job import (
     JobStatusResponse,
     JobCancelResponse,
     JobRetryResponse,
+    JobDashboardResponse,
 )
 
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+@router.get(
+    "/dashboard",
+    response_model=JobDashboardResponse,
+    summary="Get jobs dashboard",
+    description="""
+    Get comprehensive dashboard of Celery jobs (background tasks).
+    
+    This endpoint shows the actual job queue and execution status, separate from
+    test runs. Jobs represent the Celery tasks that execute test runs and other
+    background operations.
+    
+    **Response includes:**
+    - Pending jobs waiting to be picked up by workers
+    - Running jobs currently being executed
+    - Recently completed jobs (last 24h)
+    - Recently failed jobs (last 24h)
+    - Queue statistics (depth, wait times, throughput)
+    - Worker availability and capacity
+    
+    **Note:** This is different from the test runs dashboard, which shows the
+    logical test execution records. This dashboard focuses on the underlying
+    job execution infrastructure.
+    """,
+)
+async def get_jobs_dashboard(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    workspace_id: Annotated[UUID, Depends(get_current_workspace)],
+):
+    """Get comprehensive jobs dashboard."""
+    service = JobService(session)
+    
+    dashboard = await service.get_dashboard(workspace_id)
+    
+    return dashboard
 
 
 @router.get(
